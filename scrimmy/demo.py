@@ -1,0 +1,256 @@
+"""Offline demo: an ``httpx.MockTransport`` serving SYNTHETIC fixtures shaped like the real APIs.
+
+All names, identifiers, people and addresses below are fictional ("Example"
+street names, UEIs prefixed ``EXMPL``, ZIP 55990 in a fictional town). They
+exist only to exercise every stage of the pipeline without network access
+and to produce the sample dossier in ``examples/``.
+"""
+
+from __future__ import annotations
+
+import json
+import zlib
+from datetime import date
+from pathlib import Path
+from urllib.parse import parse_qs
+
+import httpx
+
+from .clients import AwardSearchFilters
+from .enrichment import EnrichmentConfig, FormationDateRecord, OperatorFormationIndex
+from .pipeline import PipelineSettings
+from .verticals import VERTICALS
+
+CITY, STATE, ZIP = "LAKEVIEW FALLS", "MN", "55990"
+
+# key: (name, uei, address_line1, address_line2, officers, npi_status or None, awards)
+# award: (group, award_id, gid, amount, date_signed, agency, naics/program)
+ENTITIES = {
+    "A": dict(
+        name="NORTHFIELD EXAMPLE HOME HEALTH LLC", uei="EXMPLA000001", line1="4410 EXAMPLE LANE", line2=None,
+        officers=["Jordan A. Sample"], npi=None,
+        awards=[
+            ("contracts", "36C26325P0001", "CONT_AWD_36C26325P0001_3600", 1_240_000.00, "2025-03-03", "Department of Veterans Affairs", "621610"),
+            ("grants", "EXMPL-GRANT-0001", "ASST_NON_EXMPLGRANT0001_7530", 310_000.00, "2025-04-21", "Department of Health and Human Services", "93.791"),
+        ],
+    ),
+    "B": dict(
+        name="RIVERBEND EXAMPLE CARE SERVICES INC", uei="EXMPLB000002", line1="880 EXAMPLE PARKWAY", line2="#210",
+        officers=[], npi="A", official=("CASEY", "EXAMPLEWORTH"),
+        awards=[("contracts", "36C26324P0002", "CONT_AWD_36C26324P0002_3600", 420_000.00, "2024-06-10", "Department of Veterans Affairs", "621610")],
+    ),
+    "C": dict(
+        name="LAKEVIEW EXAMPLE PERSONAL CARE LLC", uei="EXMPLC000003", line1="200 EXAMPLE BOULEVARD", line2="SUITE 5",
+        officers=["SAMPLE, JORDAN"], npi="A", official=("RILEY", "PLACEHOLDER"),
+        awards=[("grants", "EXMPL-GRANT-0003", "ASST_NON_EXMPLGRANT0003_7530", 180_000.00, "2024-09-30", "Department of Health and Human Services", "93.044")],
+    ),
+    "D": dict(
+        name="SUMMIT EXAMPLE WELLNESS LLC", uei="EXMPLD000004", line1="880 Example Pkwy", line2="Suite 210",
+        officers=[], npi=None,
+        awards=[("grants", "EXMPL-GRANT-0004", "ASST_NON_EXMPLGRANT0004_7530", 275_000.00, "2025-02-14", "Department of Health and Human Services", "93.044")],
+    ),
+    "E": dict(
+        name="CEDAR EXAMPLE HEALTH PARTNERS", uei="EXMPLE000005", line1="880 EXAMPLE PKWY", line2="UNIT 210",
+        officers=[], npi="A", official=("TAYLOR", "SAMPLETON"),
+        awards=[("contracts", "36C26325P0005", "CONT_AWD_36C26325P0005_3600", 90_000.00, "2025-01-08", "Department of Veterans Affairs", "621610")],
+    ),
+    "F": dict(
+        name="EXAMPLE REGIONAL MEDICAL CENTER INC", uei="EXMPLF000006", line1="1 EXAMPLE HOSPITAL DRIVE", line2=None,
+        officers=["Morgan T. Placeholder"], npi="A", official=("MORGAN", "PLACEHOLDER"),
+        awards=[("contracts", "36C26323C0006", "CONT_AWD_36C26323C0006_3600", 5_200_000.00, "2023-11-01", "Department of Veterans Affairs", "622110")],
+    ),
+}
+
+FORMATION = {"EXMPLA000001": date(2025, 1, 6), "EXMPLF000006": date(1987, 5, 1), "EXMPLC000003": date(2016, 8, 12)}
+
+# Geocodes (fictional coordinates in a lake) and what OSM "shows" there.
+GEO = {
+    "4410 EXAMPLE LANE": (45.00010, -93.50010),
+    "880 EXAMPLE PARKWAY": (45.01000, -93.52000),
+    "880 EXAMPLE PKWY": (45.01000, -93.52000),
+    "200 EXAMPLE BOULEVARD": (45.02000, -93.53000),
+    "1 EXAMPLE HOSPITAL DRIVE": (45.03000, -93.54000),
+}
+OSM = {
+    45.00010: [
+        {"type": "way", "id": 900001, "center": {"lat": 45.00012, "lon": -93.50011}, "tags": {"building": "house"}},
+        {"type": "way", "id": 900002, "center": {"lat": 45.00030, "lon": -93.50010}, "tags": {"building": "detached"}},
+        {"type": "way", "id": 900003, "tags": {"landuse": "residential"}},
+    ],
+    45.01000: [
+        {"type": "way", "id": 900010, "center": {"lat": 45.01002, "lon": -93.52001}, "tags": {"building": "retail"}},
+        {"type": "node", "id": 900011, "lat": 45.01003, "lon": -93.52002,
+         "tags": {"shop": "shipping", "name": "The UPS Store", "brand": "The UPS Store"}},
+        {"type": "node", "id": 900012, "lat": 45.01005, "lon": -93.52004, "tags": {"shop": "dry_cleaning", "name": "Example Cleaners"}},
+        {"type": "way", "id": 900013, "tags": {"landuse": "retail"}},
+    ],
+    45.02000: [
+        {"type": "way", "id": 900020, "center": {"lat": 45.02001, "lon": -93.53001}, "tags": {"building": "office"}},
+        {"type": "node", "id": 900021, "lat": 45.02002, "lon": -93.53002, "tags": {"office": "company", "name": "Example Office Park"}},
+        {"type": "way", "id": 900022, "tags": {"landuse": "commercial"}},
+    ],
+    45.03000: [
+        {"type": "way", "id": 900030, "center": {"lat": 45.03001, "lon": -93.54001}, "tags": {"building": "hospital", "amenity": "hospital", "name": "Example Regional Medical Center"}},
+        {"type": "way", "id": 900031, "tags": {"landuse": "institutional"}},
+    ],
+}
+
+
+def _recipient_id(uei: str) -> str:
+    return f"00000000-0000-0000-0000-{uei[-12:].lower().replace('exmpl', '0000a')}-C"
+
+
+def _loc(ent: dict) -> dict:
+    return {"address_line1": ent["line1"], "address_line2": ent["line2"], "address_line3": None, "city_name": CITY,
+            "county_name": "EXAMPLE", "state_code": STATE, "zip": ZIP, "zip4": None, "country_code": "USA",
+            "country_name": "UNITED STATES", "congressional_code": "99"}
+
+
+def _award_rows(group: str) -> list[dict]:
+    rows = []
+    for ent in ENTITIES.values():
+        for g, aid, gid, amt, signed, agency, code in ent["awards"]:
+            if g != group:
+                continue
+            row = {"internal_id": zlib.crc32(gid.encode()) % 10**8, "Award ID": aid, "Recipient Name": ent["name"],
+                   "Recipient UEI": ent["uei"], "recipient_id": _recipient_id(ent["uei"]), "Award Amount": amt,
+                   "Start Date": signed, "End Date": "2026-09-30", "Awarding Agency": agency,
+                   "Awarding Sub Agency": agency, "Description": "SYNTHETIC DEMO AWARD", "generated_internal_id": gid,
+                   "awarding_agency_id": 1, "agency_slug": "example"}
+            if group == "contracts":
+                row.update({"Contract Award Type": "PURCHASE ORDER", "NAICS": {"code": code, "description": "SYNTHETIC"},
+                            "PSC": {"code": "Q201", "description": "MEDICAL- GENERAL HEALTH CARE"}})
+            else:
+                row["Award Type"] = "PROJECT GRANT (B)"
+            rows.append(row)
+    return sorted(rows, key=lambda r: -r["Award Amount"])
+
+
+def _find_by(pred) -> dict | None:
+    return next((e for e in ENTITIES.values() if pred(e)), None)
+
+
+def _award_detail(gid: str) -> dict | None:
+    for ent in ENTITIES.values():
+        for g, aid, agid, amt, signed, _agency, code in ent["awards"]:
+            if agid != gid:
+                continue
+            detail = {
+                "id": 1, "generated_unique_award_id": gid, "piid" if g == "contracts" else "fain": aid,
+                "category": "contract" if g == "contracts" else "grant", "total_obligation": amt, "date_signed": signed,
+                "description": "SYNTHETIC DEMO AWARD",
+                "period_of_performance": {"start_date": signed, "end_date": "2026-09-30", "last_modified_date": signed},
+                "recipient": {"recipient_hash": _recipient_id(ent["uei"])[:-2], "recipient_name": ent["name"],
+                              "recipient_uei": ent["uei"], "parent_recipient_uei": None, "parent_recipient_name": None,
+                              "business_categories": ["Small Business", "Limited Liability Corporation"] if "LLC" in ent["name"] else ["Small Business"],
+                              "location": {**_loc(ent), "zip5": ZIP}},
+                "executive_details": {"officers": [{"name": n, "amount": 150000} for n in ent["officers"]]
+                                      + [{"name": None, "amount": None}] * (5 - len(ent["officers"]))},
+            }
+            if g == "contracts":
+                detail["latest_transaction_contract_data"] = {"naics": code, "product_or_service_code": "Q201"}
+            else:
+                detail["cfda_info"] = [{"cfda_number": code, "cfda_title": "SYNTHETIC PROGRAM"}]
+            return detail
+    return None
+
+
+def _npi_results(org_query: str) -> list[dict]:
+    from .normalize import normalize_entity_name
+
+    q = org_query.rstrip("*").upper()
+    out = []
+    for i, ent in enumerate(ENTITIES.values()):
+        if not ent["npi"] or not normalize_entity_name(ent["name"]).startswith(q):
+            continue
+        out.append({
+            "created_epoch": "1600000000000", "enumeration_type": "NPI-2", "last_updated_epoch": "1700000000000",
+            "number": f"99999999{i:02d}",
+            "addresses": [
+                {"country_code": "US", "address_purpose": "LOCATION", "address_type": "DOM", "address_1": ent["line1"],
+                 "address_2": ent["line2"] or "", "city": CITY, "state": STATE, "postal_code": f"{ZIP}0000"},
+                {"country_code": "US", "address_purpose": "MAILING", "address_type": "DOM", "address_1": ent["line1"],
+                 "address_2": ent["line2"] or "", "city": CITY, "state": STATE, "postal_code": f"{ZIP}0000"},
+            ],
+            "practiceLocations": [],
+            "basic": {"organization_name": ent["name"], "organizational_subpart": "NO", "enumeration_date": "2016-09-01",
+                      "last_updated": "2024-01-15", "status": ent["npi"],
+                      "authorized_official_first_name": ent["official"][0], "authorized_official_last_name": ent["official"][1],
+                      "authorized_official_title_or_position": "ADMINISTRATOR"},
+            "taxonomies": [{"code": "251E00000X", "taxonomy_group": "", "desc": "Home Health", "state": STATE, "license": None, "primary": True}],
+            "identifiers": [], "endpoints": [], "other_names": [],
+        })
+    return out
+
+
+def _handler(request: httpx.Request) -> httpx.Response:
+    url = request.url
+    host, path = url.host, url.path
+    if host == "api.usaspending.gov":
+        if path.endswith("/search/spending_by_award/"):
+            body = json.loads(request.content)
+            codes = body["filters"]["award_type_codes"]
+            group = "contracts" if "A" in codes else "grants" if "02" in codes else None
+            rows = _award_rows(group) if group else []
+            return httpx.Response(200, json={"limit": body["limit"], "results": rows,
+                                             "page_metadata": {"page": body["page"], "hasNext": False}, "messages": []})
+        if path.startswith("/api/v2/recipient/"):
+            rid = path.rstrip("/").split("/")[-1]
+            ent = _find_by(lambda e: _recipient_id(e["uei"]) == rid)
+            if not ent:
+                return httpx.Response(404, json={"detail": "Recipient not found"})
+            return httpx.Response(200, json={
+                "name": ent["name"], "alternate_names": [], "duns": None, "uei": ent["uei"], "recipient_id": rid,
+                "recipient_level": "C", "parent_id": None, "parent_name": None, "parent_duns": None, "parent_uei": None,
+                "parents": [], "business_types": ["category_business", "small_business"], "location": _loc(ent),
+                "total_transaction_amount": sum(a[3] for a in ent["awards"]), "total_transactions": len(ent["awards"]),
+            })
+        if path.startswith("/api/v2/awards/"):
+            detail = _award_detail(path.rstrip("/").split("/")[-1])
+            return httpx.Response(200, json=detail) if detail else httpx.Response(404, json={"detail": "not found"})
+    if host == "npiregistry.cms.hhs.gov":
+        results = _npi_results(url.params.get("organization_name", ""))
+        return httpx.Response(200, json={"result_count": len(results), "results": results})
+    if host == "geocoding.geo.census.gov":
+        street = url.params.get("street", "").upper()
+        coords = GEO.get(street)
+        matches = []
+        if coords:
+            matches = [{"tigerLine": {"side": "L", "tigerLineId": "99999" + str(zlib.crc32(street.encode()) % 10000)},
+                        "coordinates": {"x": coords[1], "y": coords[0]},
+                        "addressComponents": {"zip": ZIP, "streetName": "EXAMPLE", "city": CITY, "state": STATE},
+                        "matchedAddress": f"{street}, {CITY}, {STATE}, {ZIP}"}]
+        return httpx.Response(200, json={"result": {"input": {"address": {"street": street}, "benchmark": {"benchmarkName": "Public_AR_Current"}},
+                                                    "addressMatches": matches}})
+    if host == "overpass-api.de":
+        query = parse_qs(request.content.decode())["data"][0]
+        lat = float(query.split("around:")[1].split(",")[1])
+        elements = next((v for k, v in OSM.items() if abs(k - lat) < 1e-6), [])
+        return httpx.Response(200, json={"version": 0.6, "generator": "Overpass API (demo)", "osm3s": {"copyright": "ODbL"}, "elements": elements})
+    return httpx.Response(404, json={"error": f"demo transport has no fixture for {url}"})
+
+
+def demo_transport() -> httpx.MockTransport:
+    return httpx.MockTransport(_handler)
+
+
+def demo_formation_index() -> OperatorFormationIndex:
+    idx = OperatorFormationIndex(path="demo")
+    for uei, d in FORMATION.items():
+        idx.by_uei[uei] = FormationDateRecord(d, "SYNTHETIC demo record standing in for a Secretary of State filing")
+    return idx
+
+
+def demo_settings(output_dir: Path, threshold: int = 50) -> PipelineSettings:
+    vertical = VERTICALS["home_health"]
+    return PipelineSettings(
+        filters=AwardSearchFilters(state=STATE, naics_codes=vertical.naics_codes, program_numbers=vertical.program_numbers,
+                                   min_award=50_000, start_date=date(2023, 10, 1), end_date=date(2026, 9, 30)),
+        award_groups=["contracts", "grants"],
+        max_awards=100,
+        threshold=threshold,
+        output_dir=output_dir,
+        vertical=vertical,
+        enrichment=EnrichmentConfig(),
+        formation_index=demo_formation_index(),
+    )

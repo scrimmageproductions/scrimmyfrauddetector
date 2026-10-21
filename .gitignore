@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+# Scan outputs may contain data about real entities; keep them out of version control.
+dossiers/
+demo_dossiers/

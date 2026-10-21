@@ -1,0 +1,6 @@
+# Optional: LLM-authored executive summaries. The pipeline runs fully without these
+# (offline template narrative). Install only the provider(s) you use.
+-r requirements.txt
+anthropic==1.17.0
+openai==2.54.0
+litellm==1.106.1
