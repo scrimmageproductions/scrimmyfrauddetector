@@ -294,19 +294,25 @@ class DeterministicScorer:
         if npi.error:
             return self._ev(PHANTOM_HEALTHCARE_PROVIDER, RuleStatus.INSUFFICIENT_DATA, f"NPPES lookup failed: {npi.error}",
                             self._evidence(npi.source_record_ids, "nppes.error", npi.error))
-        ev = self._evidence(npi.source_record_ids, "nppes.results",
-                            {"queries": npi.query_names, "state": e.address.state, "candidates_examined": npi.candidates_examined,
-                             "accepted_matches": [(m.npi, m.organization_name, m.status, m.name_similarity) for m in npi.matches]},
+        ev = self._evidence(npi.source_record_ids[:1] + npi.source_record_ids[-1:] if npi.source_record_ids else [], "nppes.results",
+                            {"name_queries": npi.query_names, "state": e.address.state, "zip_searched": npi.postal_code_searched,
+                             "zip_organizations": npi.postal_candidates, "candidates_examined": npi.candidates_examined,
+                             "stages": npi.stages,
+                             "accepted_matches": [(m.npi, m.organization_name, m.status, m.match_method, m.name_similarity) for m in npi.matches]},
                             note=f"healthcare basis: {e.healthcare_basis}")
         if npi.active_npi_found and npi.best_match:
             b = npi.best_match
+            how = {"name_search": "by name", "postal_street_number": f"by street number in ZIP {npi.postal_code_searched}",
+                   "postal_fuzzy_name": f"by fuzzy name in ZIP {npi.postal_code_searched}"}.get(b.match_method or "", "")
             return self._ev(PHANTOM_HEALTHCARE_PROVIDER, RuleStatus.NOT_TRIGGERED,
-                            f"Active organizational NPI {b.npi} ({b.organization_name}) matched (name similarity {b.name_similarity:.0f}).", ev)
+                            f"Active organizational NPI {b.npi} ({b.organization_name}) matched {how} "
+                            f"(name similarity {b.name_similarity:.0f}).", ev)
         return self._ev(
             PHANTOM_HEALTHCARE_PROVIDER, RuleStatus.TRIGGERED,
-            f"Healthcare-classified recipient ({e.healthcare_basis}) has no active Type-2 (organizational) NPI in NPPES matching "
-            f"its name in {e.address.state or 'any state'} after {len(npi.query_names)} query variant(s) and "
-            f"{npi.candidates_examined} candidate record(s). Unverified provider-registration discrepancy.", ev)
+            f"Healthcare-classified recipient ({e.healthcare_basis}) has no active Type-2 (organizational) NPI in NPPES: "
+            f"{len(npi.query_names)} name variant(s) in {e.address.state or 'any state'} and a sweep of all "
+            f"{npi.postal_candidates} organization(s) in ZIP {npi.postal_code_searched} (street-number and fuzzy-name "
+            f"matching) found none. Unverified provider-registration discrepancy.", ev)
 
     # -- Residential / mail drop (OSM) ------------------------------------- #
 

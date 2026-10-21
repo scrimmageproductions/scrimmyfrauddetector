@@ -53,6 +53,10 @@ LEIE_MAX_AGE_S = 7 * 24 * 3600
 _leie: tuple[float, LEIEMatcher] | None = None
 
 MAX_AWARDS_LIMIT = 300
+# Each serverless step must finish inside the function's maxDuration (60 s in vercel.json). HTTP retries stop
+# starting new attempts once this budget is spent, so a slow source degrades to "insufficient data" instead of
+# the whole step timing out and the recipient being dropped.
+STEP_TIME_BUDGET_S = float(os.environ.get("SCRIMMY_STEP_BUDGET_S", "48"))
 
 
 class ServiceError(Exception):
@@ -138,10 +142,16 @@ def load_leie() -> LEIEMatcher:
     return _leie[1]
 
 
-def _pipeline(req: WebScanRequest, need_leie: bool = False) -> Pipeline:
+def _pipeline(req: WebScanRequest, need_leie: bool = False, gaps: list[str] | None = None) -> Pipeline:
+    started = time.monotonic()
     settings = req.to_options().to_settings()
     if need_leie and req.leie:
-        settings.leie = load_leie()
+        try:
+            settings.leie = load_leie()
+        except Exception as exc:  # noqa: BLE001 - LEIE outage must not fail every recipient
+            log.warning("LEIE unavailable: %s", exc)
+            if gaps is not None:
+                gaps.append(f"LEIE screening skipped: download failed ({str(exc)[:160]})")
     if req.license_sources:
         srcs = []
         for raw in req.license_sources:
@@ -150,7 +160,9 @@ def _pipeline(req: WebScanRequest, need_leie: bool = False) -> Pipeline:
             srcs.append(LicenseSource(key=raw["key"], kind="socrata", states=raw.get("states", []), verticals=raw.get("verticals", []),
                                       domain=raw["domain"], dataset_id=raw["dataset_id"], fields=raw.get("fields", {}), note=raw.get("note")))
         settings.license_sources = srcs
-    return Pipeline(settings, transport=TRANSPORT_FACTORY(), limiter=LIMITER_FACTORY(), ledger_namespace=secrets.token_hex(3))
+    pipe = Pipeline(settings, transport=TRANSPORT_FACTORY(), limiter=LIMITER_FACTORY(), ledger_namespace=secrets.token_hex(3))
+    pipe.http.deadline = started + STEP_TIME_BUDGET_S
+    return pipe
 
 
 def _bundles(ledger: EvidenceLedger) -> list[dict[str, Any]]:
@@ -199,16 +211,25 @@ def search(req: WebScanRequest) -> dict[str, Any]:
 
 
 def enrich(req: WebScanRequest, entity: AwardeeEntity) -> dict[str, Any]:
-    pipe = _pipeline(req, need_leie=True)
+    """Hydrate + cross-reference one recipient. Always returns a scoreable result: failures become data gaps."""
+    gaps: list[str] = []
+    pipe = _pipeline(req, need_leie=True, gaps=gaps)
     try:
         pipe.collector.hydrate(entity)
         enrichment = pipe.enrich_entity(entity)
-        return {"entity": entity.model_dump(mode="json"), "enrichment": enrichment.model_dump(mode="json"), "records": _bundles(pipe.ledger)}
+        if gaps:
+            entity.data_gaps = [*entity.data_gaps, *gaps]
+            enrichment.notes.extend(gaps)
+            enrichment.leie.error = gaps[0]
+        return {"entity": entity.model_dump(mode="json"), "enrichment": enrichment.model_dump(mode="json"),
+                "records": _bundles(pipe.ledger), "data_gaps": entity.data_gaps}
     finally:
         pipe.close()
 
 
 def score(req: WebScanRequest, items: list[Item], records: list[SourceRecord]) -> dict[str, Any]:
+    skipped = {i.entity.name: "no award with a positive obligated amount" for i in items if not i.entity.has_award_financials}
+    items = [i for i in items if i.entity.has_award_financials]
     ctx, scorer, pairs = _context(req, items)
     by_id = {r.record_id: r for r in records}
     scorer._lookup = by_id.get
@@ -226,7 +247,7 @@ def score(req: WebScanRequest, items: list[Item], records: list[SourceRecord]) -
     for e, _ in pairs:
         summary = ctx.graph.summary(e.entity_key)
         network[e.entity_key] = summary.model_dump(mode="json")
-    return {"results": out, "site_check_candidates": candidates, "network": network}
+    return {"results": out, "site_check_candidates": candidates, "network": network, "skipped": skipped}
 
 
 def site_check(req: WebScanRequest, entity: AwardeeEntity, enrichment: EnrichmentData) -> dict[str, Any]:
@@ -283,4 +304,5 @@ def capabilities() -> dict[str, Any]:
         "max_awards_limit": MAX_AWARDS_LIMIT,
         "access_token_required": bool(os.environ.get("SCRIMMY_ACCESS_TOKEN")),
         "quick_checklist": QUICK_PHYSICAL_CHECKLIST,
+        "empty_enrichment": EnrichmentData().model_dump(mode="json"),
     }

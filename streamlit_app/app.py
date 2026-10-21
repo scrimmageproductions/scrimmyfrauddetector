@@ -438,7 +438,9 @@ def inspector_panel(result: ScanResult, r: EntityResult, key: str, full: bool = 
                   ("Formation date", f"{e.formation_date or 'unknown'}"),
                   ("People on record", "; ".join(o.name for o in e.officers) or "none published"),
                   ("Land use (OSM)", enr.land_use.classification.value),
-                  ("LEIE", f"{len(enr.leie.matches)} candidate(s)" if enr.leie.performed else "not screened")]
+                  ("LEIE", f"{len(enr.leie.matches)} candidate(s)" if enr.leie.performed else "not screened"),
+                  ("NPPES lookup", " → ".join(enr.npi.stages) or "performed" if enr.npi.performed else "not applicable"),
+                  ("Data gaps", "; ".join(e.data_gaps) or "none")]
             card('<div class="sc-section">Identity</div><div class="sc-kv">' + "".join(f"<div>{esc(k)}</div><div>{esc(v)}</div>" for k, v in kv) + "</div>")
         with c2:
             if enr.geocode.matched and enr.geocode.latitude is not None:
@@ -535,6 +537,12 @@ def view_scanner(result: ScanResult) -> None:
     if result.failed_groups:
         st.warning("Some USASpending searches failed, so results are incomplete: "
                    + "; ".join(f"{g}: {e}" for g, e in result.failed_groups.items()))
+    partial = [r for r in result.results if r.entity.data_gaps]
+    if partial:
+        st.info(f"{len(partial)} recipient(s) had partial lookups and were scored on the data available; affected rules show "
+                "'insufficient data' (see Data gaps in the Lead Inspector).")
+    if result.skipped:
+        st.info(f"{len(result.skipped)} recipient(s) had no award with a positive amount and were not scored.")
     if not result.results:
         if result.failed_groups:
             empty_state("⚠︎", "Live data unavailable", "Every USASpending request failed. Check network access to api.usaspending.gov.")

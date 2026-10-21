@@ -238,6 +238,31 @@ def similarity(a: str, b: str) -> float:
     return round(difflib.SequenceMatcher(None, sa, sb).ratio() * 100, 2)
 
 
+def set_similarity(a: str, b: str) -> float:
+    """Token-*set* similarity in [0, 100]: 100 when one name's tokens are a subset of the other's."""
+    if not a or not b:
+        return 0.0
+    if _rf_fuzz is not None:
+        return float(_rf_fuzz.token_set_ratio(a, b))
+    ta, tb = set(a.split()), set(b.split())
+    inter = " ".join(sorted(ta & tb))
+    rest_a, rest_b = " ".join(sorted(ta - tb)), " ".join(sorted(tb - ta))
+    pairs = [(inter, f"{inter} {rest_a}".strip()), (inter, f"{inter} {rest_b}".strip()),
+             (f"{inter} {rest_a}".strip(), f"{inter} {rest_b}".strip())]
+    return round(max(difflib.SequenceMatcher(None, x, y).ratio() for x, y in pairs if x or y) * 100, 2)
+
+
+def street_number(normalized_street: str | None) -> str | None:
+    """Leading house number of a normalized street ('2237 COMMONWEALTH AVE' -> '2237')."""
+    m = re.match(r"^(\d+)", normalized_street or "")
+    return m.group(1) if m else None
+
+
+def canonical_org(name: str | None) -> str:
+    """normalize_entity_name plus SAINT -> ST, so 'Saint Anthony Park Home' and 'St. Anthony Park Home' compare equal."""
+    return " ".join("ST" if t == "SAINT" else t for t in normalize_entity_name(name).split())
+
+
 def names_related(a: str, b: str, threshold: float = 88.0) -> bool:
     """True if two *normalized* entity names plausibly refer to the same or affiliated organisation."""
     if not a or not b:

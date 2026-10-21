@@ -182,7 +182,7 @@ async function runScan() {
   try { opts = collectOptions(); } catch (e) { alerts([["err", `Licensing sources JSON is invalid: ${e.message}`]]); return; }
   S.running = true; $("run").disabled = true; $("sidebar").classList.remove("open");
   S.opts = opts; S.selected = null;
-  S.scan = { entities: new Map(), records: new Map(), results: [], network: {}, awardsScanned: 0, failedGroups: {}, dossiers: new Map(), enrichErrors: 0, done: false };
+  S.scan = { entities: new Map(), records: new Map(), results: [], network: {}, awardsScanned: 0, failedGroups: {}, dossiers: new Map(), enrichErrors: 0, partial: 0, skipped: {}, done: false };
   alerts([]); render();
   try {
     progress("Querying USASpending.gov awards…", 0, 0);
@@ -199,15 +199,25 @@ async function runScan() {
       try {
         const r = await api("enrich", { options: opts, entity: slot.entity });
         slot.entity = r.entity; slot.enrichment = r.enrichment; addRecords(r.records);
+        if (r.data_gaps?.length) S.scan.partial++;
       } catch (e) {
+        // Keep the recipient: score it on the award-row data from the search (UEI, name, address, amounts).
+        // Rules that needed the failed lookups report "insufficient data" instead of being silently lost.
         slot.error = e.message; S.scan.enrichErrors++;
+        slot.entity = { ...slot.entity, data_gaps: [...(slot.entity.data_gaps || []), `enrichment request failed: ${e.message}`] };
+        slot.enrichment = structuredClone(S.caps.empty_enrichment);
+        slot.enrichment.notes.push(`Enrichment request failed (${e.message}); scored on award data only.`);
       }
       progress(`Cross-referencing ${slot.entity.name}`, ++done, keys.length);
     });
-    for (const [k, v] of S.scan.entities) if (!v.enrichment) S.scan.entities.delete(k); // scored only with complete data
+    // Only recipients without core award financials are left out (the server reports them as "skipped").
 
     progress("Building entity graph and scoring…", keys.length, keys.length);
     const res = await score();
+    for (const name of Object.keys(res.skipped || {})) {
+      for (const [k, v] of S.scan.entities) if (v.entity.name === name && !v.entity.awards.some((a) => a.amount > 0)) S.scan.entities.delete(k);
+    }
+    S.scan.skipped = res.skipped || {};
     if (res.site_check_candidates.length) {
       let n = 0;
       for (const key of res.site_check_candidates) {
@@ -223,7 +233,10 @@ async function runScan() {
     S.scan.done = true;
     const warn = [];
     if (Object.keys(S.scan.failedGroups).length) warn.push(["warn", `Some award searches failed, so results are incomplete: ${Object.keys(S.scan.failedGroups).join(", ")}.`]);
-    if (S.scan.enrichErrors) warn.push(["warn", `${S.scan.enrichErrors} recipient lookup(s) failed and were left out of scoring.`]);
+    if (S.scan.enrichErrors) warn.push(["warn", `${S.scan.enrichErrors} recipient lookup(s) failed; those recipients were scored on their award data alone, and rules that needed the missing lookups show "insufficient data".`]);
+    else if (S.scan.partial) warn.push(["warn", `${S.scan.partial} recipient(s) had partial lookups (see "Data gaps" in the Lead Inspector); affected rules show "insufficient data".`]);
+    const nSkipped = Object.keys(S.scan.skipped || {}).length;
+    if (nSkipped) warn.push(["warn", `${nSkipped} recipient(s) had no award with a positive amount and were not scored.`]);
     alerts(warn);
   } catch (e) {
     alerts([["err", e.message]]);
@@ -363,6 +376,8 @@ function viewInspector(v) {
     ["People on record", e.officers.map((o) => o.name).join("; ") || "none published"],
     ["Land use (OSM)", enr.land_use.classification],
     ["LEIE", enr.leie.performed ? `${enr.leie.matches.length} candidate(s)` : "not screened"],
+    ["NPPES lookup", enr.npi?.performed ? (enr.npi.stages || []).join(" → ") || "performed" : "not applicable"],
+    ["Data gaps", (e.data_gaps || []).join("; ") || "none"],
   ];
   const cap = enr.capacity;
   const capHtml = cap.performed
@@ -405,7 +420,13 @@ function viewInspector(v) {
 
   if (enr.geocode.matched && window.L) {
     const map = L.map("map", { scrollWheelZoom: false }).setView([enr.geocode.latitude, enr.geocode.longitude], 17);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap contributors" }).addTo(map);
+    // CARTO basemaps: tile.openstreetmap.org blocks embedded/referer-less use (osm.wiki/Blocked). Positron in light mode,
+    // Dark Matter in dark mode, both monochrome so the red site marker stays the only accent.
+    const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    L.tileLayer(`https://{s}.basemaps.cartocdn.com/${dark ? "dark_all" : "light_all"}/{z}/{x}/{y}{r}.png`, {
+      subdomains: "abcd", maxZoom: 20,
+      attribution: '&copy; <a href="https://carto.com/">CARTO</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
     L.circleMarker([enr.geocode.latitude, enr.geocode.longitude], { radius: 9, color: "#FF3B30", fillOpacity: 0.6 }).addTo(map);
   }
   drawGraph(r.entity_key);

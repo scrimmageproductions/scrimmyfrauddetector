@@ -56,6 +56,11 @@ def _address_from_usaspending(loc: dict[str, Any] | None) -> Address:
     return normalize_address(addr)
 
 
+def _short(exc: Exception) -> str:
+    text = str(exc)
+    return text if len(text) <= 160 else text[:157] + "..."
+
+
 def entity_key_for_row(row: dict[str, Any]) -> str:
     uei = (row.get("Recipient UEI") or "").strip()
     if uei:
@@ -105,6 +110,10 @@ class TargetCollector:
                 usaspending_recipient_id=row.get("recipient_id"),
             )
             entities[key] = entity
+        loc = row.get("Recipient Location")
+        if not entity.address.line1 and isinstance(loc, dict) and (loc.get("address_line1") or loc.get("zip5")):
+            # Address embedded in the award row: used as-is if the /recipient/ profile lookup later fails.
+            entity.address = _address_from_usaspending(loc)
         elif name and name != entity.name and name not in entity.alternate_names:
             entity.alternate_names = [*entity.alternate_names, name]
         if record_id not in entity.source_record_ids:
@@ -130,12 +139,17 @@ class TargetCollector:
     # -- hydration --------------------------------------------------------- #
 
     def hydrate(self, entity: AwardeeEntity) -> None:
+        """Add profile and award-detail data. Never raises: a failed lookup leaves the award-row data in place
+        (UEI, name, address, amounts) and is recorded in ``entity.data_gaps``."""
         if entity.usaspending_recipient_id:
             try:
                 profile, record = self.client.recipient_profile(entity.usaspending_recipient_id)
                 self._apply_profile(entity, profile, record.record_id)
-            except SourceAPIError as exc:
+            except Exception as exc:  # noqa: BLE001 - 404/400/timeouts/malformed payloads all degrade the same way
                 log.warning("Recipient profile unavailable for %s: %s", entity.name, exc)
+                entity.data_gaps = [*entity.data_gaps, f"recipient profile unavailable ({_short(exc)}); used award-row data"]
+                if isinstance(exc, SourceAPIError) and exc.record:
+                    entity.source_record_ids = [*entity.source_record_ids, exc.record.record_id]
 
         for award in sorted(entity.awards, key=lambda a: a.amount, reverse=True)[: self.detail_awards_per_entity]:
             if not award.generated_internal_id:
@@ -143,8 +157,9 @@ class TargetCollector:
             try:
                 detail, record = self.client.award_detail(award.generated_internal_id)
                 self._apply_award_detail(entity, award, detail, record.record_id)
-            except SourceAPIError as exc:
+            except Exception as exc:  # noqa: BLE001
                 log.warning("Award detail unavailable for %s: %s", award.generated_internal_id, exc)
+                entity.data_gaps = [*entity.data_gaps, f"award detail {award.award_id} unavailable ({_short(exc)})"]
 
     @staticmethod
     def _apply_profile(entity: AwardeeEntity, profile: dict[str, Any], record_id: str) -> None:

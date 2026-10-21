@@ -166,12 +166,18 @@ class AwardeeEntity(StrictModel):
     formation_source_record_ids: list[str] = Field(default_factory=list)
     is_healthcare: bool = False
     healthcare_basis: str | None = None
+    data_gaps: list[str] = Field(default_factory=list, description="Lookups that failed; the entity was scored without them.")
     source_record_ids: list[str] = Field(default_factory=list)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def total_awarded(self) -> float:
         return round(sum(a.amount for a in self.awards), 2)
+
+    @property
+    def has_award_financials(self) -> bool:
+        """Core award data needed for scoring: at least one award with a positive obligated amount."""
+        return any(a.amount > 0 for a in self.awards)
 
 
 # --------------------------------------------------------------------------- #
@@ -193,11 +199,17 @@ class NPIRecord(StrictModel):
     mailing_address: Address | None = None
     name_similarity: float = 0.0
     address_match: bool = False
+    street_number_match: bool = False
+    match_method: str | None = Field(default=None, description="'name_search', 'postal_street_number' or 'postal_fuzzy_name'.")
 
 
 class NPIMatchResult(StrictModel):
     performed: bool = False
     query_names: list[str] = Field(default_factory=list)
+    postal_code_searched: str | None = None
+    postal_candidates: int = 0
+    postal_sweep_truncated: bool = False
+    stages: list[str] = Field(default_factory=list, description="Human-readable log of each lookup stage and its outcome.")
     candidates_examined: int = 0
     matches: list[NPIRecord] = Field(default_factory=list)
     best_match: NPIRecord | None = None

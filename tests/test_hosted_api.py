@@ -92,3 +92,29 @@ def test_vercel_layout_is_consistent():
         assert (ROOT / "public" / ref).exists(), ref
     reqs = (ROOT / "requirements.txt").read_text()
     assert "fastapi" in reqs and "streamlit" not in reqs  # keep the function bundle small
+
+
+def test_enrich_survives_leie_outage(client, monkeypatch):
+    from scrimmy.clients import SourceAPIError
+
+    def boom():
+        raise SourceAPIError("hhs_oig_leie: HTTP 503")
+
+    monkeypatch.setattr(service, "load_leie", boom)
+    found = client.post("/api/search", json=OPTS).json()
+    r = client.post("/api/enrich", json={"options": {**OPTS, "leie": True}, "entity": found["entities"][0]})
+    assert r.status_code == 200
+    body = r.json()
+    assert any("LEIE screening skipped" in g for g in body["data_gaps"])
+    assert body["enrichment"]["geocode"]["performed"]  # every other stage still ran
+
+
+def test_score_accepts_fallback_items_and_skips_zero_award(client):
+    found = client.post("/api/search", json=OPTS).json()
+    items = [{"entity": e} for e in found["entities"]]  # enrichment omitted = browser fallback after a failed /enrich
+    zero = {**found["entities"][0], "entity_key": "UEI:ZERO", "name": "ZERO AWARD EXAMPLE LLC", "uei": "ZERO",
+            "awards": [{**found["entities"][0]["awards"][0], "amount": 0.0}]}
+    items.append({"entity": zero})
+    res = client.post("/api/score", json={"options": OPTS, "items": items, "records": []}).json()
+    assert len(res["results"]) == len(found["entities"]) and res["skipped"] == {"ZERO AWARD EXAMPLE LLC": "no award with a positive obligated amount"}
+    assert client.get("/api/health").json()["empty_enrichment"]["npi"]["performed"] is False

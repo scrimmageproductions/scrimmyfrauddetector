@@ -30,11 +30,10 @@ from .models import (
     LandUseClass,
     LandUseResult,
     NPIMatchResult,
-    NPIRecord,
     Officer,
     SourceRecord,
 )
-from .normalize import normalize_address, normalize_entity_name, normalize_person_name, similarity
+from .normalize import normalize_entity_name, normalize_person_name
 from .leie_matcher import LEIE_DOWNLOAD_URL, LEIEMatcher
 from .licensing import LicenseLookup
 from .math_engine import CapacityEngine
@@ -295,15 +294,33 @@ class CrossReferencer:
         self.ledger = ledger
 
     def enrich(self, entity: AwardeeEntity) -> EnrichmentData:
+        """Run every cross-reference. Each stage is isolated: an unexpected failure in one is recorded in
+        ``data.notes`` and ``entity.data_gaps``, its rules score as insufficient data, and the others still run."""
         data = EnrichmentData()
-        self._classify_healthcare(entity)
-        self._formation_date(entity, data)
-        data.geocode, data.land_use = self._locate(entity.address)
-        if entity.is_healthcare or self.config.npi_for_all:
-            data.npi = self._npi(entity)
-            self._absorb_npi(entity, data)
-        self._leie(entity, data)
-        self._license_and_capacity(entity, data)
+
+        def stage(name: str, fn) -> None:
+            try:
+                fn()
+            except Exception as exc:  # noqa: BLE001 - one broken source must not abort the recipient
+                log.warning("%s failed for %s: %s", name, entity.name, exc)
+                msg = f"{name} failed: {type(exc).__name__}: {str(exc)[:200]}"
+                data.notes.append(msg)
+                entity.data_gaps = [*entity.data_gaps, msg]
+
+        def locate() -> None:
+            data.geocode, data.land_use = self._locate(entity.address)
+
+        def npi() -> None:
+            if entity.is_healthcare or self.config.npi_for_all:
+                data.npi = self._npi(entity)
+                self._absorb_npi(entity, data)
+
+        stage("healthcare classification", lambda: self._classify_healthcare(entity))
+        stage("formation date", lambda: self._formation_date(entity, data))
+        stage("geocoding / land use", locate)
+        stage("NPPES lookup", npi)
+        stage("LEIE screening", lambda: self._leie(entity, data))
+        stage("licensing / capacity", lambda: self._license_and_capacity(entity, data))
         return data
 
     @staticmethod
@@ -476,98 +493,10 @@ class CrossReferencer:
 
     # -- NPPES ------------------------------------------------------------- #
 
-    def _npi_queries(self, entity: AwardeeEntity) -> list[str]:
-        queries: list[str] = []
-        for nm in [entity.normalized_name, *(normalize_entity_name(a) for a in entity.alternate_names)]:
-            if nm and len(nm) >= 2:
-                q = f"{nm}*"
-                if q not in queries:
-                    queries.append(q)
-        tokens = entity.normalized_name.split()
-        if len(tokens) > 2:
-            q = f"{' '.join(tokens[:2])}*"
-            if q not in queries:
-                queries.append(q)
-        return queries[:3]
-
     def _npi(self, entity: AwardeeEntity) -> NPIMatchResult:
-        result = NPIMatchResult(performed=True)
-        seen: dict[str, NPIRecord] = {}
-        errors = []
-        for query in self._npi_queries(entity):
-            result.query_names.append(query)
-            try:
-                payload, record = self.nppes.search_organizations(query, state=entity.address.state)
-            except SourceAPIError as exc:
-                errors.append(str(exc))
-                if exc.record:
-                    result.source_record_ids.append(exc.record.record_id)
-                continue
-            result.source_record_ids.append(record.record_id)
-            if record.error:
-                errors.append(f"NPPES rejected query {query!r}: {record.error}")
-                continue
-            for raw in payload.get("results") or []:
-                rec = self._npi_record(raw, entity)
-                result.candidates_examined += 1
-                if rec and rec.npi not in seen:
-                    seen[rec.npi] = rec
-            if any(self._accept(r) for r in seen.values()):
-                break
-        result.matches = sorted((r for r in seen.values() if self._accept(r)), key=lambda r: (-r.name_similarity, not r.address_match))
-        result.best_match = result.matches[0] if result.matches else None
-        result.active_npi_found = any(r.status == "A" for r in result.matches)
-        if errors and not result.matches and len(errors) == len(result.query_names):
-            result.error = " | ".join(errors)
-        return result
-
-    def _accept(self, rec: NPIRecord) -> bool:
-        return rec.name_similarity >= self.config.npi_name_threshold or (
-            rec.address_match and rec.name_similarity >= self.config.npi_name_threshold_with_address
-        )
-
-    @staticmethod
-    def _npi_address(a: dict[str, Any]) -> Address:
-        return normalize_address(
-            Address(line1=a.get("address_1"), line2=a.get("address_2") or None, city=a.get("city"),
-                    state=a.get("state"), zip5=a.get("postal_code"), country=a.get("country_code"))
-        )
-
-    def _npi_record(self, raw: dict[str, Any], entity: AwardeeEntity) -> NPIRecord | None:
-        basic = raw.get("basic") or {}
-        org = basic.get("organization_name")
-        names = [org, *((o or {}).get("organization_name") for o in raw.get("other_names") or [])]
-        sims = [similarity(normalize_entity_name(n), entity.normalized_name) for n in names if n]
-        if not sims:
-            return None
-        addresses = raw.get("addresses") or []
-        practice = next((a for a in addresses if a.get("address_purpose") == "LOCATION"), None)
-        mailing = next((a for a in addresses if a.get("address_purpose") == "MAILING"), None)
-        all_addrs = [self._npi_address(a) for a in [*addresses, *(raw.get("practiceLocations") or [])]]
-        addr_match = any(
-            a.zip5 == entity.address.zip5 and similarity(a.normalized_street or "", entity.address.normalized_street or "") >= 85
-            for a in all_addrs
-            if entity.address.zip5
-        )
-        official = " ".join(
-            p for p in (basic.get("authorized_official_first_name"), basic.get("authorized_official_middle_name"),
-                        basic.get("authorized_official_last_name")) if p
-        ) or None
-        return NPIRecord(
-            npi=str(raw.get("number")),
-            organization_name=org,
-            status=basic.get("status"),
-            enumeration_type=raw.get("enumeration_type"),
-            enumeration_date=parse_date(basic.get("enumeration_date")),
-            last_updated=parse_date(basic.get("last_updated")),
-            authorized_official_name=official,
-            authorized_official_title=basic.get("authorized_official_title_or_position"),
-            taxonomies=[f"{t.get('code')} {t.get('desc')}".strip() for t in raw.get("taxonomies") or []],
-            practice_address=self._npi_address(practice) if practice else None,
-            mailing_address=self._npi_address(mailing) if mailing else None,
-            name_similarity=max(sims),
-            address_match=addr_match,
-        )
+        """Multi-stage NPPES lookup (name variants, then ZIP street-number / fuzzy-name fallback); see NPPESClient.get_npi."""
+        return self.nppes.get_npi(entity, name_threshold=self.config.npi_name_threshold,
+                                  name_threshold_with_address=self.config.npi_name_threshold_with_address)
 
     def _absorb_npi(self, entity: AwardeeEntity, data: EnrichmentData) -> None:
         best = data.npi.best_match

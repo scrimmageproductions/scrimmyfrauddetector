@@ -248,6 +248,7 @@ class ScanResult:
     failed_groups: dict[str, str] = field(default_factory=dict)
     context: ScoringContext | None = None
     awards_scanned: int = 0
+    skipped: dict[str, str] = field(default_factory=dict)  # entity name -> why it was not scored
 
     @property
     def leads(self) -> list[EntityResult]:
@@ -322,8 +323,12 @@ class Pipeline:
         scan = self.scan_context()
 
         self.progress("Querying USASpending.gov awards", 0.02)
-        entities = self.collector.collect(s.filters, s.award_groups, s.max_awards)
-        awards_scanned = sum(len(e.awards) for e in entities)
+        collected = self.collector.collect(s.filters, s.award_groups, s.max_awards)
+        awards_scanned = sum(len(e.awards) for e in collected)
+        # Scoring needs only the award financials from the search. Profile/detail/enrichment gaps degrade
+        # individual rules to "insufficient data"; a recipient is skipped only if it has no positive award amount.
+        entities = [e for e in collected if e.has_award_financials]
+        self._skipped = {e.name: "no award with a positive obligated amount" for e in collected if not e.has_award_financials}
 
         pairs = []
         for i, entity in enumerate(entities, 1):
@@ -359,7 +364,7 @@ class Pipeline:
         manifest_path, ledger_path = self._write_manifest(scan, results)
         self.progress("Scan complete", 1.0)
         return ScanResult(scan, results, manifest_path, ledger_path, failed_groups=dict(self.collector.failed_groups),
-                          context=context, awards_scanned=awards_scanned)
+                          context=context, awards_scanned=awards_scanned, skipped=self._skipped)
 
     def _write_manifest(self, scan: ScanContext, results: list[EntityResult]) -> tuple[Path, Path]:
         out = self.settings.output_dir
@@ -375,6 +380,8 @@ class Pipeline:
             "scoring_config": json.loads(self.settings.scoring.model_dump_json()),
             "entities_screened": len(results),
             "leads_at_or_above_threshold": sum(1 for r in results if r.dossier),
+            "skipped": getattr(self, "_skipped", {}),
+            "entities_with_data_gaps": {r.entity.name: r.entity.data_gaps for r in results if r.entity.data_gaps},
             "source_records": len(self.ledger),
             "source_ledger": ledger_path.name,
             "failed_award_searches": self.collector.failed_groups,

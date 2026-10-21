@@ -139,7 +139,12 @@ def _award_rows(group: str) -> list[dict]:
                    "Recipient UEI": ent["uei"], "recipient_id": _recipient_id(ent["uei"]), "Award Amount": amt,
                    "Start Date": signed, "End Date": END_DATES.get(gid, "2026-09-30"), "Awarding Agency": agency,
                    "Awarding Sub Agency": agency, "Description": "SYNTHETIC DEMO AWARD", "generated_internal_id": gid,
-                   "awarding_agency_id": 1, "agency_slug": "example"}
+                   "awarding_agency_id": 1, "agency_slug": "example",
+                   "Recipient Location": {"location_country_code": "USA", "country_name": "UNITED STATES", "state_code": STATE,
+                                          "state_name": "Minnesota", "city_name": CITY, "county_code": "999", "county_name": "EXAMPLE",
+                                          "address_line1": ent["line1"], "address_line2": ent["line2"], "address_line3": None,
+                                          "congressional_code": "99", "zip4": None, "zip5": ZIP, "foreign_postal_code": None,
+                                          "foreign_province": None}}
             if group == "contracts":
                 row.update({"Contract Award Type": "PURCHASE ORDER", "NAICS": {"code": code, "description": "SYNTHETIC"},
                             "PSC": {"code": "Q201", "description": "MEDICAL- GENERAL HEALTH CARE"}})
@@ -176,6 +181,10 @@ def _award_detail(gid: str) -> dict | None:
                 detail["cfda_info"] = [{"cfda_number": code, "cfda_title": "SYNTHETIC PROGRAM"}]
             return detail
     return None
+
+
+# Organizations that NPPES knows only by a different registered name, reachable through the ZIP sweep.
+EXTRA_NPPES_ORGS: list[dict] = []
 
 
 def _npi_results(org_query: str) -> list[dict]:
@@ -268,7 +277,16 @@ def _handler(request: httpx.Request) -> httpx.Response:
     if host == SOCRATA_DOMAIN:
         return _socrata(request)
     if host == "npiregistry.cms.hhs.gov":
-        results = _npi_results(url.params.get("organization_name", ""))
+        params = url.params
+        if params.get("organization_name"):
+            results = _npi_results(params["organization_name"])
+        elif params.get("postal_code"):  # ZIP sweep: every Type-2 org whose address starts with the 5-digit ZIP
+            everyone = _npi_results("")
+            zipped = [r for r in everyone if any(a["postal_code"].startswith(params["postal_code"]) for a in r["addresses"])]
+            skip, limit = int(params.get("skip", 0)), int(params.get("limit", 10))
+            results = (zipped + EXTRA_NPPES_ORGS)[skip:skip + limit]
+        else:
+            return httpx.Response(200, json={"Errors": [{"description": "No valid search criteria provided", "field": "generic", "number": "04"}]})
         return httpx.Response(200, json={"result_count": len(results), "results": results})
     if host == "geocoding.geo.census.gov":
         assert path == "/geocoder/geographies/onelineaddress", path

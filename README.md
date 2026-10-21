@@ -121,7 +121,7 @@ Samples, generated unedited by the pipeline from the synthetic test fixtures (fi
 |---|---|---:|---:|---|
 | `LEIE_EXCLUSION_MATCH` | Match to HHS-OIG LEIE | 40 | 35 | The entity, an officer, an authorized official or a registered agent matches an active LEIE row by NPI, or by name + state + (city, ZIP or middle initial). Name + state alone is reported for review but never scored. |
 | `MATHEMATICAL_IMPOSSIBILITY` | Statistically Anomalous Disbursement-to-Capacity Ratio | 40 | 40 | annualized award ÷ (unit rate × units per day × 365) ÷ capacity > 2.0, where capacity is the matched state license or, failing that, a facility-type ceiling |
-| `PHANTOM_HEALTHCARE_PROVIDER` | Healthcare Recipient Without Active Organizational NPI | 30 | 20 | A healthcare-classified recipient has no active Type-2 NPI matching its name in its state |
+| `PHANTOM_HEALTHCARE_PROVIDER` | Healthcare Recipient Without Active Organizational NPI | 30 | 20 | A healthcare-classified recipient has no active Type-2 NPI after **both** stages of `NPPESClient.get_npi()` finish: (1) cleaned name variants in its state (punctuation and entity suffixes stripped, ST/SAINT spellings), then (2) a sweep of every Type-2 NPI in its ZIP code, matched by street number (plus token-set name similarity ≥ 70) or fuzzy name (token-set ≥ 90). If the ZIP is unknown, the sweep fails, or it is incomplete, the rule reports insufficient data instead of +points |
 | `HIGH_DOLLAR_RESIDENTIAL_ZONE` | High-Dollar Award at Residential / Mail-Drop Address | 25 | 0 | > $250k awarded at an OSM-residential structure, a CMRA/PMB, or a P.O. Box (not scored if the matched license is home-based) |
 | `PHYSICAL_SITE_MISMATCH` | Unverified Operating Capacity at Observed Site | 0 | 25 | An on-site-service recipient with > $250k awarded, whose imagery (within 4 years of the award) is classified as a residence, mail drop or vacant lot at confidence ≥ 0.75, with no commercial presence mapped in OSM |
 | `NEWLY_FORMED_WINDFALL` | Newly Formed Windfall | 20 | 15 | A major award (≥ $100k) dated less than 120 days after formation |
@@ -171,6 +171,8 @@ The presets are targeting groupings modelled on where the Strike Forces operate,
 ## Limitations
 
 - Cross-entity rules only see recipients returned by your filters.
+- A failed lookup never drops a recipient. Search rows carry the recipient's UEI, name, address ("Recipient Location") and amounts. Profile, award-detail and enrichment failures are recorded as **data gaps**, and the affected rules score as insufficient data. Only recipients with no positive award amount are skipped. Each hosted (serverless) step works within a 48-second time budget (`SCRIMMY_STEP_BUDGET_S`), so retries cannot push it past Vercel's 60-second limit.
+- The hosted map uses CARTO basemaps (Positron, or Dark Matter in dark mode); OpenStreetMap's own tile servers block embedded use. CARTO's free basemaps are intended for non-commercial use within their usage limits; check carto.com before heavy or commercial use.
 - USASpending has no formation dates, so `NEWLY_FORMED_WINDFALL` needs `--sam-api-key` or `--formation-csv`.
 - Prime recipients of pass-through programs (CCDF, CACFP, Medicaid) are often state agencies or sponsors, not site operators. Capacity ratios for sponsors and multi-site operators will look high for lawful reasons.
 - OSM coverage varies, Census geocodes are interpolated, and person-name matches can be false positives.

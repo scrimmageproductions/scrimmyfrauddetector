@@ -23,6 +23,7 @@ import logging
 import math
 import os
 import random
+import re
 import threading
 import time
 from collections.abc import Iterator
@@ -34,7 +35,8 @@ from urllib.parse import urlencode, urlsplit
 import httpx
 
 from . import __version__
-from .models import SourceRecord, utcnow
+from .models import Address, AwardeeEntity, NPIMatchResult, NPIRecord, SourceRecord, utcnow
+from .normalize import canonical_org, normalize_address, set_similarity, similarity, street_number
 
 log = logging.getLogger(__name__)
 
@@ -177,6 +179,7 @@ class ResilientHTTP:
     limiter: HostRateLimiter = field(default_factory=lambda: HostRateLimiter(DEFAULT_HOST_INTERVALS))
     transport: httpx.BaseTransport | None = None
     sleep: Any = time.sleep
+    deadline: float | None = None  # time.monotonic() value after which no new attempt starts (serverless time budget)
     _client: httpx.Client | None = None
 
     def __post_init__(self) -> None:
@@ -190,6 +193,10 @@ class ResilientHTTP:
     def close(self) -> None:
         if self._client:
             self._client.close()
+
+    def remaining(self) -> float | None:
+        """Seconds left in the time budget, or None when unbounded."""
+        return None if self.deadline is None else self.deadline - time.monotonic()
 
     def request_json(
         self,
@@ -218,10 +225,18 @@ class ResilientHTTP:
         response: httpx.Response | None = None
         started = time.monotonic()
         attempt = 0
+        attempts_made = 0
         for attempt in range(1, self.retry.max_attempts + 1):
+            budget = self.remaining()
+            if budget is not None and budget < 1.5:
+                last_error = f"time budget exhausted after {attempts_made} attempt(s)" + (f" ({last_error})" if last_error else "")
+                break
             self.limiter.wait(host, self.sleep)
+            per_attempt = httpx.Timeout(self.timeout, connect=min(10.0, self.timeout)) if budget is None else \
+                httpx.Timeout(max(1.0, min(self.timeout, budget - 0.5)), connect=max(1.0, min(10.0, budget - 0.5)))
+            attempts_made += 1
             try:
-                response = self._client.request(method, full_url, json=json_body, data=form)
+                response = self._client.request(method, full_url, json=json_body, data=form, timeout=per_attempt)
             except (httpx.TransportError, httpx.TimeoutException) as exc:
                 last_error = f"{type(exc).__name__}: {exc}"
                 response = None
@@ -233,6 +248,10 @@ class ResilientHTTP:
                 log.warning("%s %s attempt %d -> %s", method, recorded_url, attempt, response.status_code)
             if attempt < self.retry.max_attempts:
                 delay = self.retry.delay(attempt, response.headers.get("Retry-After") if response is not None else None)
+                budget = self.remaining()
+                if budget is not None and delay > budget - 2.0:
+                    last_error = f"{last_error}; retry skipped: time budget exhausted"
+                    break
                 if response is not None and response.status_code == 429:
                     self.limiter.penalize(host, delay)
                 self.sleep(delay)
@@ -246,7 +265,7 @@ class ResilientHTTP:
             request_body=body_for_record,
             retrieved_at=utcnow(),
             elapsed_ms=elapsed_ms,
-            attempts=attempt,
+            attempts=max(1, attempts_made),
         )
         if response is None:
             record.error = last_error or "no response"
@@ -303,6 +322,9 @@ class ResilientHTTP:
 _COMMON_AWARD_FIELDS = [
     "Award ID", "Recipient Name", "Recipient UEI", "recipient_id", "Awarding Agency",
     "Awarding Sub Agency", "Description", "generated_internal_id",
+    # Address of record embedded in each row (address_line1, city_name, state_code, zip5, county_name, ...), so a
+    # recipient whose /recipient/ profile lookup fails (404/400) still has an address to geocode and score.
+    "Recipient Location",
 ]
 
 AWARD_GROUPS: dict[str, dict[str, Any]] = {
@@ -442,29 +464,229 @@ class USASpendingClient:
 # --------------------------------------------------------------------------- #
 
 
+NPPES_ENTITY_SUFFIXES = {"INC", "INCORPORATED", "LLC", "LLP", "LP", "PLLC", "CORP", "CORPORATION", "CO", "COMPANY", "LTD",
+                         "LIMITED", "PC", "PA"}
+
+
+def nppes_search_names(name: str) -> list[str]:
+    """Organization-name search terms for NPPES, most specific first.
+
+    ``"ST. ANTHONY PARK HOME, INC."`` -> ``["ST ANTHONY PARK HOME", "ST. ANTHONY PARK HOME"]``
+
+    The first form strips punctuation (periods, commas, hyphens, slashes) and trailing legal-entity
+    suffixes. The second keeps the punctuation but still drops the suffix, because NPPES matches the
+    name as it was registered. httpx URL-encodes each term when it is sent.
+    """
+    raw = " ".join((name or "").upper().split())
+    raw = re.sub(r"\b(D/?B/?A|DOING BUSINESS AS|AKA|FKA)\b.*$", "", raw).strip()
+    raw = re.sub(r"\b((?:[A-Z]\.){2,})", lambda m: m.group(1).replace(".", ""), raw)  # L.L.C. -> LLC, P.A. -> PA
+
+    def strip_suffixes(tokens: list[str]) -> list[str]:
+        while len(tokens) > 1 and tokens[-1].strip(".,") in NPPES_ENTITY_SUFFIXES:
+            tokens = tokens[:-1]
+        return tokens
+
+    clean = re.sub(r"[.,\-/]", " ", raw)
+    clean = re.sub(r"[^A-Z0-9& ]", " ", clean)
+    clean_tokens = strip_suffixes(clean.split())
+    punct_tokens = strip_suffixes(raw.replace(",", " ").split())
+    variants = [clean_tokens, punct_tokens]
+    if clean_tokens and clean_tokens[0] in ("ST", "SAINT"):  # registrations use both spellings
+        variants.append(["SAINT" if clean_tokens[0] == "ST" else "ST", *clean_tokens[1:]])
+    out = []
+    for tokens in variants:
+        term = " ".join(tokens).rstrip(" ,.")
+        if len(term) >= 2 and term not in out:
+            out.append(term)
+    return out
+
+
+def _parse_day(value: Any) -> date | None:
+    try:
+        return date.fromisoformat(str(value)[:10]) if value else None
+    except ValueError:
+        return None
+
+
 class NPPESClient:
+    """CMS NPPES NPI Registry API v2.1 (public, no key). Max 200 results per request; ``skip`` reaches 1,200 records."""
+
     BASE = "https://npiregistry.cms.hhs.gov/api/"
+    PAGE = 200
+    MAX_SKIP = 1000
 
     def __init__(self, http: ResilientHTTP):
         self.http = http
 
-    def search_organizations(self, organization_name: str, state: str | None = None, postal_code: str | None = None, limit: int = 200) -> tuple[dict, SourceRecord]:
-        params = {
-            "version": "2.1",
-            "enumeration_type": "NPI-2",
-            "organization_name": organization_name,
-            "state": state,
-            "postal_code": postal_code,
-            "limit": min(limit, 200),
-        }
-        payload, record = self.http.request_json("nppes", "GET", self.BASE, params=params)
+    def _get(self, params: dict[str, Any]) -> tuple[dict, SourceRecord]:
+        payload, record = self.http.request_json("nppes", "GET", self.BASE, params={"version": "2.1", **params})
         if isinstance(payload, dict) and payload.get("Errors"):
             # NPPES returns HTTP 200 with an "Errors" array for invalid criteria.
             record.error = json.dumps(payload["Errors"])[:500]
         return payload, record
 
+    def search_organizations(self, organization_name: str, state: str | None = None, postal_code: str | None = None,
+                             limit: int = 200) -> tuple[dict, SourceRecord]:
+        return self._get({"enumeration_type": "NPI-2", "organization_name": organization_name, "state": state,
+                          "postal_code": postal_code, "limit": min(limit, self.PAGE)})
+
+    def organizations_in_postal_code(self, postal_code: str, max_records: int = 1200) -> tuple[list[dict], list[SourceRecord]]:
+        """Every Type-2 (organization) NPI whose address is in a 5-digit ZIP (matches ZIP+4 too), paging with ``skip``."""
+        results: list[dict] = []
+        records: list[SourceRecord] = []
+        skip = 0
+        while skip <= self.MAX_SKIP and len(results) < max_records:
+            payload, record = self._get({"enumeration_type": "NPI-2", "postal_code": postal_code[:5], "limit": self.PAGE, "skip": skip})
+            records.append(record)
+            if record.error:
+                raise SourceAPIError(f"nppes: postal-code search rejected: {record.error}", record)
+            page = (payload or {}).get("results") or []
+            results.extend(page)
+            if len(page) < self.PAGE:
+                break
+            skip += self.PAGE
+        return results, records
+
     def lookup_npi(self, npi: str) -> tuple[dict, SourceRecord]:
-        return self.http.request_json("nppes", "GET", self.BASE, params={"version": "2.1", "number": npi})
+        return self._get({"number": npi})
+
+    # -- multi-stage organizational NPI lookup ----------------------------- #
+
+    @staticmethod
+    def _address(a: dict[str, Any]) -> Address:
+        return normalize_address(Address(line1=a.get("address_1"), line2=a.get("address_2") or None, city=a.get("city"),
+                                         state=a.get("state"), zip5=a.get("postal_code"), country=a.get("country_code")))
+
+    def _record(self, raw: dict[str, Any], entity: AwardeeEntity, method: str) -> NPIRecord | None:
+        basic = raw.get("basic") or {}
+        org = basic.get("organization_name")
+        names = [n for n in [org, *((o or {}).get("organization_name") for o in raw.get("other_names") or [])] if n]
+        if not names:
+            return None
+        target = canonical_org(entity.name)
+        sort_sim = max(similarity(canonical_org(n), target) for n in names)
+        set_sim = max(set_similarity(canonical_org(n), target) for n in names)
+        addresses = raw.get("addresses") or []
+        practice = next((a for a in addresses if a.get("address_purpose") == "LOCATION"), None)
+        mailing = next((a for a in addresses if a.get("address_purpose") == "MAILING"), None)
+        all_addrs = [self._address(a) for a in [*addresses, *(raw.get("practiceLocations") or [])]]
+        zip5, street = entity.address.zip5, entity.address.normalized_street
+        number = street_number(street)
+        addr_match = bool(zip5) and any(a.zip5 == zip5 and similarity(a.normalized_street or "", street or "") >= 85 for a in all_addrs)
+        number_match = bool(zip5 and number) and any(a.zip5 == zip5 and street_number(a.normalized_street) == number for a in all_addrs)
+        official = " ".join(p for p in (basic.get("authorized_official_first_name"), basic.get("authorized_official_middle_name"),
+                                        basic.get("authorized_official_last_name")) if p) or None
+        return NPIRecord(
+            npi=str(raw.get("number")), organization_name=org, status=basic.get("status"),
+            enumeration_type=raw.get("enumeration_type"), enumeration_date=_parse_day(basic.get("enumeration_date")),
+            last_updated=_parse_day(basic.get("last_updated")), authorized_official_name=official,
+            authorized_official_title=basic.get("authorized_official_title_or_position"),
+            taxonomies=[f"{t.get('code')} {t.get('desc')}".strip() for t in raw.get("taxonomies") or []],
+            practice_address=self._address(practice) if practice else None,
+            mailing_address=self._address(mailing) if mailing else None,
+            # Name stage reports the stricter token-sort score; postal stages report token-set (subset-tolerant).
+            name_similarity=sort_sim if method == "name_search" else set_sim,
+            address_match=addr_match, street_number_match=number_match, match_method=method,
+        )
+
+    def get_npi(self, entity: AwardeeEntity, name_threshold: float = 90.0, name_threshold_with_address: float = 80.0,
+                postal_name_threshold: float = 90.0, postal_street_name_threshold: float = 70.0) -> NPIMatchResult:
+        """Find the recipient's organizational (Type-2) NPI.
+
+        Stage 1, name search: cleaned name variants (punctuation and entity suffixes removed, ST/SAINT
+            spellings), prefix-wildcarded, within the recipient's state. Accept token-sort similarity >= 90,
+            or >= 80 when an NPPES address matches the address of record.
+        Stage 2, address fallback (only if stage 1 found no active match): every Type-2 NPI in the recipient's
+            5-digit ZIP. Fallback A accepts a record at the same street number whose name has token-set
+            similarity >= 70. Fallback B accepts token-set similarity >= 90 anywhere in the ZIP.
+
+        "No active NPI" is concluded only when both stages ran to completion. If the ZIP is unknown, the
+        ZIP sweep fails, or the ZIP holds more than 1,200 organizations, ``error`` is set, and the scorer
+        treats that as insufficient data rather than a finding.
+        """
+        result = NPIMatchResult(performed=True)
+        found: dict[str, NPIRecord] = {}
+
+        def consider(rec: NPIRecord | None, accepted: bool) -> None:
+            if rec and accepted and rec.npi not in found:  # first (strongest) stage to accept an NPI wins
+                found[rec.npi] = rec
+
+        def active() -> bool:
+            return any(r.status == "A" for r in found.values())
+
+        # Stage 1
+        names = []
+        for n in [entity.name, *entity.alternate_names]:
+            names += [t for t in nppes_search_names(n) if t not in names]
+        name_errors = 0
+        for term in names[:4]:
+            query = f"{term}*"
+            result.query_names.append(query)
+            try:
+                payload, record = self.search_organizations(query, state=entity.address.state)
+            except SourceAPIError as exc:
+                name_errors += 1
+                result.stages.append(f"name '{query}': request failed ({exc})")
+                if exc.record:
+                    result.source_record_ids.append(exc.record.record_id)
+                continue
+            result.source_record_ids.append(record.record_id)
+            if record.error:
+                name_errors += 1
+                result.stages.append(f"name '{query}': rejected by NPPES ({record.error})")
+                continue
+            rows = payload.get("results") or []
+            result.candidates_examined += len(rows)
+            for raw in rows:
+                rec = self._record(raw, entity, "name_search")
+                consider(rec, bool(rec) and (rec.name_similarity >= name_threshold or
+                                             (rec.address_match and rec.name_similarity >= name_threshold_with_address)))
+            result.stages.append(f"name '{query}' in {entity.address.state or 'all states'}: {len(rows)} candidate(s)")
+            if active():
+                break
+
+        # Stage 2
+        zip5 = entity.address.zip5
+        if not active():
+            if not zip5:
+                result.stages.append("address fallback: not possible (no ZIP code of record)")
+                result.error = "no active NPI found by name, and the address-based fallback was not possible (no ZIP of record)"
+            else:
+                result.postal_code_searched = zip5
+                try:
+                    rows, records = self.organizations_in_postal_code(zip5)
+                except SourceAPIError as exc:
+                    if exc.record:
+                        result.source_record_ids.append(exc.record.record_id)
+                    result.stages.append(f"address fallback ZIP {zip5}: failed ({exc})")
+                    result.error = f"no active NPI found by name, and the ZIP {zip5} fallback failed: {exc}"
+                else:
+                    result.source_record_ids += [r.record_id for r in records]
+                    result.postal_candidates = len(rows)
+                    result.postal_sweep_truncated = len(rows) >= (self.MAX_SKIP + self.PAGE)
+                    result.candidates_examined += len(rows)
+                    for raw in rows:
+                        rec = self._record(raw, entity, "postal_fuzzy_name")
+                        if not rec:
+                            continue
+                        if rec.street_number_match and rec.name_similarity >= postal_street_name_threshold:
+                            consider(rec.model_copy(update={"match_method": "postal_street_number"}), True)
+                        elif rec.name_similarity >= postal_name_threshold:
+                            consider(rec, True)
+                    result.stages.append(f"address fallback ZIP {zip5}: {len(rows)} organization(s) examined, "
+                                         f"{sum(1 for r in found.values() if r.match_method != 'name_search')} matched")
+                    if result.postal_sweep_truncated and not active():
+                        result.error = f"ZIP {zip5} holds more than {len(rows)} organizations; the sweep was incomplete"
+
+        order = {"name_search": 0, "postal_street_number": 1, "postal_fuzzy_name": 2}
+        result.matches = sorted(found.values(), key=lambda r: (r.status != "A", order.get(r.match_method or "", 3), -r.name_similarity))
+        result.best_match = result.matches[0] if result.matches else None
+        result.active_npi_found = active()
+        if result.active_npi_found:
+            result.error = None
+        elif name_errors and name_errors == len(result.query_names) and not result.error:
+            result.error = "every NPPES name query failed"
+        return result
 
 
 # --------------------------------------------------------------------------- #
