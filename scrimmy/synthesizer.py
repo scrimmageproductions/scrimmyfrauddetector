@@ -1,16 +1,17 @@
-"""Stage 4 - Synthesis & Dossier Generation.
+"""Stage: Synthesis & Dossier Generation.
 
 Division of labour:
 
-* Everything numeric or evidentiary (score, flags, evidence matrix, sources,
-  statutes, checklist) is rendered deterministically from the data models.
-* An optional LLM writes *only* the Executive Summary prose, from a closed
-  fact sheet. Its output must pass ``LanguageGuard`` (no accusatory language,
-  no numbers absent from the fact sheet). On any failure the deterministic
-  template is used instead, and the fallback is recorded in the dossier.
+* Everything numeric or evidentiary (score, flags, capacity arithmetic, evidence
+  matrix, sources, hashes, statutes, track routing, checklists) is rendered
+  deterministically from the data models.
+* An optional LLM writes *only* the Executive Summary prose, from a closed fact
+  sheet. Its output must pass ``LanguageGuard`` (no accusatory language, no numbers
+  absent from the fact sheet). On any failure the deterministic template is used
+  instead, and the fallback is recorded in the dossier.
 
-Backends: ``template`` (default, offline), ``anthropic``, ``openai``,
-``ollama`` (local HTTP), ``litellm`` (any provider LiteLLM supports).
+Backends: ``template`` (default, offline), ``anthropic``, ``openai``, ``ollama``
+(local HTTP), ``litellm`` (any provider LiteLLM supports).
 """
 
 from __future__ import annotations
@@ -31,18 +32,24 @@ from .models import (
     FraudRiskDossier,
     LandUseClass,
     NarrativeProvenance,
+    NetworkSummary,
     RuleStatus,
     ScanContext,
     ScoreBreakdown,
     SourceRecord,
+    TrackAssessment,
     utcnow,
 )
 from .scorer import (
-    RULE_COLOCATION,
-    RULE_EXEC_DUP,
-    RULE_NEWLY_FORMED,
-    RULE_PHANTOM_HEALTH,
-    RULE_RESIDENTIAL,
+    CO_LOCATED_SHELL_CLUSTER,
+    EXECUTIVE_SERIAL_REGISTRATION,
+    HIGH_DOLLAR_RESIDENTIAL_ZONE,
+    LEIE_EXCLUSION_MATCH,
+    MATHEMATICAL_IMPOSSIBILITY,
+    NEWLY_FORMED_WINDFALL,
+    PHANTOM_HEALTHCARE_PROVIDER,
+    PHYSICAL_SITE_MISMATCH,
+    UNRESOLVED_PHYSICAL_DISCREPANCY,
     ScoringContext,
 )
 
@@ -50,11 +57,11 @@ log = logging.getLogger(__name__)
 
 DISCLAIMER = (
     "This dossier is an automated investigative LEAD generated from public records for review by a qualified human "
-    "investigator. It is not a finding, allegation or accusation of wrongdoing by any person or entity. Every indicator "
-    "below describes an unverified discrepancy in public data that may have a lawful explanation (data-entry error, "
-    "stale registry records, legitimate home-based operations, shared professional office space, affiliated entities "
-    "not linked in public data, etc.). No report has been submitted to any agency by this tool. Do not publish, "
-    "circulate or act on this document without independent verification."
+    "investigator and counsel. It is not a finding, allegation or accusation of wrongdoing by any person or entity. Every "
+    "indicator describes an unverified discrepancy in public data that may have a lawful explanation (data-entry error, "
+    "stale registry records, legitimate home-based operations, shared professional office space, sponsor or pass-through "
+    "funding, affiliated entities not linked in public data, etc.). No report has been submitted to any agency by this tool. "
+    "Do not publish, circulate or act on this document without independent verification."
 )
 
 # --------------------------------------------------------------------------- #
@@ -63,87 +70,148 @@ DISCLAIMER = (
 
 STATUTES: dict[str, dict[str, str]] = {
     "FCA": {"citation": "31 U.S.C. §§ 3729-3733", "name": "False Claims Act",
-            "relevance": "Civil liability for knowingly presenting false claims for federal funds; § 3730(b) qui tam "
-                         "provisions and § 3730(h) anti-retaliation protections for whistleblowers."},
-    "FCA_PDB": {"citation": "31 U.S.C. § 3730(e)(4)", "name": "False Claims Act - public disclosure bar",
-                "relevance": "Qui tam actions based on publicly disclosed information (including federal reports and "
-                             "databases such as USASpending) may be barred unless the relator is an 'original source' "
-                             "with independent knowledge. Consult counsel."},
+            "relevance": "Civil liability for knowingly presenting false claims for federal funds. Qui tam actions are filed "
+                         "under seal by counsel (§ 3730(b)). Relator share under § 3730(d): generally 15-25% if the government "
+                         "intervenes, 25-30% if it declines, and up to 10% where the action rests primarily on publicly "
+                         "disclosed information. § 3730(h) protects against retaliation."},
+    "FCA_PDB": {"citation": "31 U.S.C. § 3730(e)(4)", "name": "False Claims Act: public disclosure bar",
+                "relevance": "Qui tam actions based substantially on publicly disclosed information (including federal reports "
+                             "and databases such as USASpending, NPPES and the LEIE) may be dismissed unless the relator is an "
+                             "'original source' whose independent knowledge materially adds to the public disclosures. Analysis "
+                             "of public data alone may not qualify; consult counsel before filing."},
     "MAIL": {"citation": "18 U.S.C. § 1341", "name": "Mail fraud",
-             "relevance": "Federal offense involving use of the mails in a scheme to obtain money by false pretenses."},
+             "relevance": "Use of the mails in a scheme to obtain money by false pretenses."},
     "WIRE": {"citation": "18 U.S.C. § 1343", "name": "Wire fraud",
-             "relevance": "Federal offense involving interstate wire communications (including electronic payment "
-                          "and grant-drawdown systems) in a scheme to obtain money by false pretenses."},
+             "relevance": "Use of interstate wire communications (including electronic claims, payment and grant-drawdown "
+                          "systems) in a scheme to obtain money by false pretenses."},
     "FALSE_STMT": {"citation": "18 U.S.C. § 1001", "name": "False statements",
-                   "relevance": "Materially false statements in matters within federal jurisdiction (e.g. SAM.gov "
-                                "registrations, grant applications, certifications)."},
-    "PROGRAM_THEFT": {"citation": "18 U.S.C. § 666", "name": "Theft or bribery concerning programs receiving federal funds",
+                   "relevance": "Materially false statements in matters within federal jurisdiction (e.g. SAM.gov registrations, "
+                                "grant applications, attendance or meal-count certifications)."},
+    "PROGRAM_THEFT": {"citation": "18 U.S.C. § 666", "name": "Theft concerning programs receiving federal funds",
                       "relevance": "Applies to organizations receiving more than $10,000 in federal program benefits in a one-year period."},
     "CONSPIRACY": {"citation": "18 U.S.C. § 371", "name": "Conspiracy to defraud the United States",
                    "relevance": "Relevant where multiple coordinated entities or individuals are involved."},
     "HC_FRAUD": {"citation": "18 U.S.C. § 1347", "name": "Health care fraud",
                  "relevance": "Schemes to defraud any health care benefit program, including Medicare and Medicaid."},
-    "AKS": {"citation": "42 U.S.C. § 1320a-7b(b)", "name": "Anti-Kickback Statute",
-            "relevance": "Remuneration for referrals of federal health care program business."},
     "CMPL": {"citation": "42 U.S.C. § 1320a-7a", "name": "Civil Monetary Penalties Law",
-             "relevance": "Administrative penalties for false or fraudulent claims to federal health care programs."},
+             "relevance": "Administrative penalties for false claims to federal health care programs, including claims for items "
+                          "or services furnished, ordered or directed by an excluded individual or entity."},
+    "EXCLUSION": {"citation": "42 U.S.C. § 1320a-7; 42 C.F.R. § 1001.1901", "name": "OIG exclusion authority and effect of exclusion",
+                  "relevance": "Federal health care programs do not pay for items or services furnished, ordered or prescribed "
+                               "by an excluded party, including administrative and management services."},
     "PFCRA": {"citation": "31 U.S.C. §§ 3801-3812", "name": "Program Fraud Civil Remedies Act",
               "relevance": "Administrative remedies for false claims and statements of $150,000 or less."},
 }
 
 RULE_STATUTES: dict[str, list[str]] = {
-    RULE_NEWLY_FORMED: ["FALSE_STMT", "PROGRAM_THEFT"],
-    RULE_RESIDENTIAL: ["FALSE_STMT", "WIRE", "MAIL"],
-    RULE_PHANTOM_HEALTH: ["HC_FRAUD", "CMPL"],
-    RULE_COLOCATION: ["CONSPIRACY", "FALSE_STMT"],
-    RULE_EXEC_DUP: ["CONSPIRACY", "FALSE_STMT"],
+    LEIE_EXCLUSION_MATCH: ["EXCLUSION", "CMPL"],
+    MATHEMATICAL_IMPOSSIBILITY: ["FALSE_STMT", "PROGRAM_THEFT"],
+    PHANTOM_HEALTHCARE_PROVIDER: ["HC_FRAUD", "CMPL"],
+    HIGH_DOLLAR_RESIDENTIAL_ZONE: ["FALSE_STMT"],
+    PHYSICAL_SITE_MISMATCH: ["FALSE_STMT"],
+    NEWLY_FORMED_WINDFALL: ["FALSE_STMT", "PROGRAM_THEFT"],
+    CO_LOCATED_SHELL_CLUSTER: ["CONSPIRACY", "FALSE_STMT"],
+    EXECUTIVE_SERIAL_REGISTRATION: ["CONSPIRACY", "FALSE_STMT"],
+    UNRESOLVED_PHYSICAL_DISCREPANCY: ["FALSE_STMT"],
 }
 
 BASE_CHECKLIST = [
-    "Re-run every source URL in the Source Ledger and confirm the responses still match the recorded SHA-256 hashes or note what changed.",
-    "Pull the full award files (USASpending award pages, FPDS/FAC audits, agency grant notices) for each award listed and record the stated place of performance and purpose.",
-    "Retrieve the entity's Secretary of State filing history (formation date, registered agent, officers, status, annual reports) and save dated copies.",
-    "Retrieve the SAM.gov entity registration (status, entity start date, physical vs. mailing address, POCs, exclusions) and check SAM.gov exclusions and HHS-OIG LEIE.",
-    "Search county property-tax / assessor records for the address of record: owner of record, property class code (residential/commercial), homestead exemption status.",
-    "Check whether the entity holds the operating licenses its awards would require (state child care licensing, health facility licensing, professional licenses) and the licensed capacity at the address.",
-    "Search the Federal Audit Clearinghouse for Single Audit reports if the entity expended $1,000,000 or more (FY2025+ threshold; $750,000 previously) in federal awards in a fiscal year.",
-    "Document innocent explanations considered and why each was or was not ruled out.",
+    "Re-run every source URL in the Source Ledger and confirm the responses still match the recorded SHA-256 hashes, or note what changed (run `sha256sum -c SHA256SUMS` in the evidence directory first).",
+    "Pull the full award files (USASpending award pages, agency grant notices, Federal Audit Clearinghouse Single Audits) and record the stated place of performance, purpose and sub-recipients.",
+    "Retrieve the Secretary of State filing history (formation date, registered agent, officers, status, annual reports) and save dated copies.",
+    "Retrieve the SAM.gov entity registration (status, entity start date, physical vs. mailing address, POCs) and check SAM.gov exclusions.",
+    "County deed / assessor audit: owner of record, property class code (residential/commercial), homestead exemption, transfer history, and whether the owner is connected to listed officers.",
+    "State licensing: license type (family/home vs. center), licensed capacity, ages served, inspection and violation history at the address of record.",
+    "Document every lawful explanation considered and why it was or was not ruled out.",
 ]
 
 RULE_CHECKLIST: dict[str, list[str]] = {
-    RULE_NEWLY_FORMED: [
-        "Confirm the formation date directly from the state filing (not a third-party aggregator); check for predecessor entities, mergers or name changes that would explain a short operating history.",
-        "Compare the award solicitation/notice date to the formation date; determine whether the entity certified prior experience or past performance in its application.",
+    LEIE_EXCLUSION_MATCH: [
+        "Confirm the LEIE match with the OIG online exclusion search (verify with SSN/EIN through the OIG site where you lawfully have them); check reinstatement and waiver status.",
+        "Establish the excluded person's actual role (owner, officer, manager, billing or clinical staff) from state filings or provider-enrollment records.",
     ],
-    RULE_RESIDENTIAL: [
-        "From a public right-of-way only, photograph the premises with date/time and GPS metadata: signage, business hours, deliveries, client traffic. Do not trespass, enter, or contact occupants.",
-        "Check Google Street View / county imagery history for the address to see whether a business presence existed during the award period.",
-        "If the address is a CMRA/PMB or P.O. Box, determine the entity's actual place of performance from award documents, licensing records and NPPES practice locations.",
-        "Check zoning and home-occupation permits with the municipality; confirm whether the activity funded is permitted at a residence.",
+    MATHEMATICAL_IMPOSSIBILITY: [
+        "Confirm the licensed capacity, ages served and operating schedule directly from the state licensing record, and check whether the recipient operates other licensed sites that the award also funds.",
+        "Replace the benchmark unit rate with the program's actual rate for the award period (CACFP: annual USDA notice; hospice: CMS final rule; CCDF: state payment rates) and recompute.",
+        "Obtain claimed meal/attendance/patient-day counts through official records requests (FOIA; state public-records law) and compare them to capacity x operating days.",
     ],
-    RULE_PHANTOM_HEALTH: [
+    PHANTOM_HEALTHCARE_PROVIDER: [
         "Search NPPES manually by name variants, DBA names, prior names and individual practitioners; check whether services were billed under an individual (Type 1) NPI or a parent organization.",
-        "Check the state Medicaid provider enrollment directory and CMS Provider Enrollment (PECOS) data where publicly available.",
-        "Confirm whether the funded activity actually required NPI enumeration (e.g. grant administration or research does not).",
+        "Check the state Medicaid provider enrollment directory, and CMS Provider Enrollment (PECOS) data where public.",
+        "Confirm whether the funded activity actually required NPI enumeration (grant administration and research do not).",
     ],
-    RULE_COLOCATION: [
-        "For each co-located entity, pull Secretary of State records and compare registered agents, officers, formation dates and filing patterns.",
-        "Determine whether the address is a legitimate multi-tenant office, registered-agent service, accountant's office or business incubator (common lawful explanations).",
+    HIGH_DOLLAR_RESIDENTIAL_ZONE: [
+        "From a public right-of-way only, photograph the premises with date/time/GPS metadata: signage, posted hours, deliveries. Do not trespass, enter, contact occupants, or photograph people.",
+        "Check Street View / county imagery history for a business presence during the award period.",
+        "If the address is a CMRA/PMB or P.O. Box, establish the actual place of performance from award documents, licensing records and NPPES practice locations.",
+        "Check zoning and home-occupation permits with the municipality.",
     ],
-    RULE_EXEC_DUP: [
-        "Confirm the individual's identity across entities using full name plus middle name, title, and corporate filings; common names produce false matches.",
-        "Determine whether the entities are lawfully affiliated (franchise, management company, common ownership disclosed in filings) and whether that relationship was disclosed in award applications.",
+    PHYSICAL_SITE_MISMATCH: [
+        "Open the referenced imagery (Mapillary key or Google pano_id) and confirm the vision classification yourself; note the capture date relative to the award period.",
+        "Conduct at least two public right-of-way observations during the hours the funded services should be operating (see SOP).",
+    ],
+    NEWLY_FORMED_WINDFALL: [
+        "Confirm the formation date from the state filing (not an aggregator); check for predecessor entities, mergers or name changes.",
+        "Compare the award solicitation/notice date with the formation date and determine whether past performance or experience was certified.",
+    ],
+    CO_LOCATED_SHELL_CLUSTER: [
+        "For each co-located entity, pull state filings and compare registered agents, officers, formation dates and filing patterns.",
+        "Rule out a legitimate multi-tenant office, registered-agent service, accountant's office or incubator at the address.",
+    ],
+    EXECUTIVE_SERIAL_REGISTRATION: [
+        "Confirm the individual's identity across entities (full name, middle name, title, filings); common names produce false matches.",
+        "Determine whether the entities are lawfully affiliated (franchise, management company, disclosed common ownership).",
+    ],
+    UNRESOLVED_PHYSICAL_DISCREPANCY: [
+        "Verify the address with the USPS ZIP Code lookup and county parcel data; check for new construction, rural routes or typos.",
     ],
 }
 
-COMMON_CAVEATS = [
-    "Scores reflect only the five documented heuristics applied to public data at the time of retrieval; a high score is a prioritisation signal, not evidence of intent or wrongdoing.",
-    "Cross-entity rules (co-location, officer overlap) only consider recipients returned by this scan's filters; entities outside the scan are not compared.",
-    "OpenStreetMap is volunteer-maintained; missing or outdated building/POI tags are common, especially in rural and newly built areas.",
-    "Census Geocoder coordinates are interpolated along street segments and can be offset by tens of meters from the actual parcel.",
-    "USASpending recipient addresses reflect the most recent SAM/award data and may not match the address at the time of award.",
-    "Person-name matches are on normalized names only and do not confirm that two records refer to the same individual.",
+FINAL_REVIEW_CHECKLIST = [
+    "Every section 10 item is completed and documented, and each indicator is marked Explained, Unresolved or Corroborated.",
+    "Each statement in the draft tip cites a primary record you retrieved yourself, not only this dossier.",
+    "Observed facts are kept separate from inferences; the wording is neutral; no conclusions of guilt.",
+    "Counsel has been consulted on routing (criminal tip vs. qui tam), the public disclosure bar, and original-source status.",
+    "Nothing has been shared publicly or with the subject; the evidence folder hashes still verify.",
 ]
+
+COMMON_CAVEATS = [
+    "Scores reflect only the documented heuristics applied to public data at the time of retrieval. A high score is a prioritisation signal, not evidence of intent or wrongdoing.",
+    "Cross-entity rules (co-location, serial registration) only consider recipients returned by this scan's filters.",
+    "OpenStreetMap is volunteer-maintained; missing or outdated building/POI tags are common.",
+    "Census Geocoder coordinates are interpolated along street segments and can be offset by tens of meters from the parcel.",
+    "USASpending recipient addresses reflect the most recent registration data and may differ from the address at the time of award.",
+    "Person-name matches use normalized names only and do not confirm that two records refer to the same individual.",
+]
+
+TRACK_A_RULES = {PHANTOM_HEALTHCARE_PROVIDER, PHYSICAL_SITE_MISMATCH, MATHEMATICAL_IMPOSSIBILITY, NEWLY_FORMED_WINDFALL,
+                 HIGH_DOLLAR_RESIDENTIAL_ZONE, LEIE_EXCLUSION_MATCH}
+TRACK_B_RULES = {CO_LOCATED_SHELL_CLUSTER, EXECUTIVE_SERIAL_REGISTRATION}
+
+
+def assess_track(score: ScoreBreakdown, network: NetworkSummary, entity: AwardeeEntity) -> TrackAssessment:
+    """Deterministic routing *suggestion*. The actual choice of channel is made by the human and their counsel."""
+    triggered = {ev.rule_id for ev in score.evaluations if ev.status is RuleStatus.TRIGGERED and ev.points_awarded > 0}
+    a_hits, b_hits = sorted(triggered & TRACK_A_RULES), sorted(triggered & TRACK_B_RULES)
+    rationale = []
+    multi = len(network.component_entities) >= 3
+    if a_hits:
+        rationale.append(f"Entity-level indicators ({', '.join(a_hits)}) concern a single recipient's registration, premises or "
+                         f"capacity, which suits a concentrated criminal referral (Track A).")
+    if b_hits:
+        rationale.append(f"Network indicators ({', '.join(b_hits)}) link this recipient to other awardees, the multi-entity "
+                         f"pattern counsel evaluates for a civil False Claims Act / qui tam action (Track B).")
+    if multi:
+        rationale.append(f"Connected component: {len(network.component_entities)} awardees, "
+                         f"${network.component_total_awarded:,.2f} total awarded in scope.")
+    if LEIE_EXCLUSION_MATCH in triggered or (MATHEMATICAL_IMPOSSIBILITY in triggered and entity.is_healthcare):
+        rationale.append("Exclusion and reimbursement-volume indicators are also commonly pursued civilly (CMPL / FCA).")
+    track_b = bool(b_hits) or (multi and bool(a_hits)) or LEIE_EXCLUSION_MATCH in triggered
+    track_a = bool(a_hits)
+    primary = "B: civil FCA / qui tam (via counsel)" if (b_hits or (multi and a_hits)) else "A: criminal referral" if track_a else "Undetermined"
+    rationale.append("Routing is a suggestion for counsel. A qui tam complaint must be filed under seal by an attorney, and DOJ "
+                     "whistleblower programs have their own eligibility rules and reward terms (check justice.gov for the current terms).")
+    return TrackAssessment(track_a_criminal_referral=track_a, track_b_civil_fca=track_b, primary=primary, rationale=rationale)
 
 
 # --------------------------------------------------------------------------- #
@@ -318,21 +386,23 @@ Hard rules:
 # Synthesizer
 # --------------------------------------------------------------------------- #
 
-
 def _money(x: float) -> str:
     return f"${x:,.2f}"
 
 
 class Synthesizer:
-    def __init__(self, backend: LLMBackend | None = None, guard: LanguageGuard | None = None):
+    def __init__(self, backend: LLMBackend | None = None, guard: LanguageGuard | None = None, high_priority_threshold: int = 50):
         self.backend = backend or TemplateBackend()
         self.guard = guard or LanguageGuard()
+        self.high_priority_threshold = high_priority_threshold
 
     # -- facts & narrative ------------------------------------------------- #
 
     @staticmethod
-    def fact_sheet(entity: AwardeeEntity, score: ScoreBreakdown, enrichment: EnrichmentData) -> dict[str, Any]:
+    def fact_sheet(entity: AwardeeEntity, score: ScoreBreakdown, enrichment: EnrichmentData,
+                   track: TrackAssessment | None = None) -> dict[str, Any]:
         agencies = sorted({a.awarding_agency for a in entity.awards if a.awarding_agency})
+        cap = enrichment.capacity
         return {
             "entity_name": entity.name,
             "uei": entity.uei,
@@ -345,6 +415,9 @@ class Synthesizer:
             "triggered_indicators": [{"title": f.title, "points": f.score_contribution, "observation": f.description} for f in score.flags],
             "indicators_with_insufficient_data": [ev.title for ev in score.evaluations if ev.status is RuleStatus.INSUFFICIENT_DATA],
             "premises_classification": enrichment.land_use.classification.value,
+            "capacity_ratio": cap.capacity_ratio if cap.performed else None,
+            "licensed_capacity": cap.licensed_capacity if cap.performed else None,
+            "suggested_track": track.primary.split(":")[0] if track and ":" in track.primary else None,
         }
 
     def template_summary(self, facts: dict[str, Any]) -> str:
@@ -359,12 +432,17 @@ class Synthesizer:
             f"{facts['total_awarded']} from {agencies}. The deterministic screen assigned an anomaly score of "
             f"{facts['score']}/{facts['score_max']} from {len(flags)} triggered indicator{'s' if len(flags) != 1 else ''}: {titles}."
         )
+        if facts.get("capacity_ratio") is not None:
+            p1 += (f" Benchmark arithmetic implies daily beneficiary volume of {facts['capacity_ratio']}x the licensed capacity "
+                   f"of {facts['licensed_capacity']}.")
+        if facts.get("suggested_track"):
+            p1 += f" Suggested routing for counsel's consideration: Track {facts['suggested_track']} (see table below)."
         p2 = (
-            "Each indicator describes an unverified discrepancy between public data sources (for example, a high-variance "
-            "award-to-presence ratio or an anomalous co-location pattern) and does not establish wrongdoing by any person "
-            "or entity. Lawful explanations, including stale registry data, legitimate home-based or shared-office "
-            "operations, and undisclosed affiliations, must be ruled out through the ground-truthing checklist before any "
-            "referral is considered."
+            "Each indicator describes an unverified discrepancy between public data sources (for example, a statistically "
+            "anomalous disbursement-to-presence ratio or unresolved corporate co-location) and does not establish wrongdoing "
+            "by any person or entity. Lawful explanations, including stale registry data, legitimate home-based or shared-office "
+            "operations, sponsor or pass-through funding, and undisclosed affiliations, must be ruled out through the field "
+            "checklist before any referral is considered."
         )
         if facts["indicators_with_insufficient_data"]:
             p2 += (" The following indicators could not be evaluated for lack of data and contributed no points: "
@@ -402,56 +480,50 @@ class Synthesizer:
         vertical_caveats: list[str] | None = None,
     ) -> FraudRiskDossier:
         generated_at = utcnow()
-        facts = self.fact_sheet(entity, score, enrichment)
+        network = context.graph.summary(entity.entity_key)
+        track = assess_track(score, network, entity)
+        facts = self.fact_sheet(entity, score, enrichment, track)
         summary, prov = self.narrative(facts)
 
-        triggered = [f.rule_id for f in score.flags]
+        triggered = [ev.rule_id for ev in score.evaluations if ev.status is RuleStatus.TRIGGERED]
         statute_keys = ["FCA", "FCA_PDB", "WIRE", "MAIL"]
         for rid in triggered:
             statute_keys += [k for k in RULE_STATUTES.get(rid, []) if k not in statute_keys]
-        if entity.is_healthcare and "HC_FRAUD" not in statute_keys:
-            statute_keys.append("HC_FRAUD")
-        if entity.total_awarded > 10_000 and "PROGRAM_THEFT" not in statute_keys:
-            statute_keys.append("PROGRAM_THEFT")
-        if entity.total_awarded <= 150_000:
-            statute_keys.append("PFCRA")
+        for cond, key in ((entity.is_healthcare, "HC_FRAUD"), (entity.total_awarded > 10_000, "PROGRAM_THEFT"),
+                          (len(network.component_entities) >= 2, "CONSPIRACY"), (entity.total_awarded <= 150_000, "PFCRA")):
+            if cond and key not in statute_keys:
+                statute_keys.append(key)
 
         checklist = [item for rid in triggered for item in RULE_CHECKLIST.get(rid, [])] + BASE_CHECKLIST
 
-        related_keys = sorted({k for f in score.flags for k in f.related_entity_keys})
         related = []
-        for k in related_keys:
+        for k in sorted({k for f in score.flags for k in f.related_entity_keys}):
             other = context.entities.get(k)
             if other:
-                related.append({
-                    "entity_key": k, "name": other.name, "uei": other.uei, "address": other.address.one_line,
-                    "total_awarded": other.total_awarded,
-                    "officers": [o.name for o in other.officers],
-                    "linked_by": [f.rule_id for f in score.flags if k in f.related_entity_keys],
-                })
+                related.append({"entity_key": k, "name": other.name, "uei": other.uei, "address": other.address.one_line,
+                                "total_awarded": other.total_awarded, "officers": [o.name for o in other.officers],
+                                "linked_by": [f.rule_id for f in score.flags if k in f.related_entity_keys]})
 
         caveats = list(COMMON_CAVEATS) + list(vertical_caveats or [])
         if enrichment.land_use.classification in (LandUseClass.RESIDENTIAL, LandUseClass.MIXED):
-            caveats.append("Residential classification derives from OSM building/land-use tags, not municipal zoning; verify with the local zoning map and assessor class code.")
+            caveats.append("Residential classification derives from OSM building/land-use tags, not municipal zoning; verify with the zoning map and assessor class code.")
+        if enrichment.capacity.performed:
+            caveats.append("Capacity arithmetic assumes the entire award paid for beneficiary-days at the matched licensed site at the benchmark "
+                           "rate. Sponsors, multi-site operators, administrative/capital funding and unspent obligations all break that assumption.")
+        if enrichment.vision.assessment:
+            caveats.append("Site classification is a vision model's description of one street-level image, which may be outdated, obstructed or "
+                           "facing a neighbouring parcel. Confirm it in person.")
+        if enrichment.leie.matches:
+            caveats.append("LEIE matches are on published name/state/location/NPI fields. Confirm identity through the OIG online search before relying on them.")
         if entity.formation_date_source and "proxy" in entity.formation_date_source:
             caveats.append("The formation date used is a proxy (NPI enumeration date), not a legal formation date.")
         caveats += enrichment.notes
 
         return FraudRiskDossier(
-            dossier_id=FraudRiskDossier.make_id(entity.entity_key, generated_at),
-            generated_at=generated_at,
-            scan=scan,
-            entity=entity,
-            enrichment=enrichment,
-            score=score,
-            related_entities=related,
-            statutory_references=[{"key": k, **STATUTES[k]} for k in statute_keys],
-            ground_truthing_checklist=checklist,
-            caveats=caveats,
-            narrative_provenance=prov,
-            executive_summary=summary,
-            sources=sources,
-            disclaimer=DISCLAIMER,
+            dossier_id=FraudRiskDossier.make_id(entity.entity_key, generated_at), generated_at=generated_at, scan=scan,
+            entity=entity, enrichment=enrichment, score=score, related_entities=related, network=network, track=track,
+            statutory_references=[{"key": k, **STATUTES[k]} for k in statute_keys], ground_truthing_checklist=checklist,
+            caveats=caveats, narrative_provenance=prov, executive_summary=summary, sources=sources, disclaimer=DISCLAIMER,
         )
 
     # -- rendering --------------------------------------------------------- #
@@ -466,6 +538,7 @@ class Synthesizer:
         c = self._cell
         out: list[str] = []
         w = out.append
+        priority = "HIGH-PRIORITY FORENSIC LEAD" if s.score >= self.high_priority_threshold else "Below high-priority threshold"
 
         w(f"# Investigative Lead Briefing: {e.name}\n")
         w("> **LEAD FOR HUMAN REVIEW. NOT A FINDING OF WRONGDOING.** Generated automatically from public records; "
@@ -473,54 +546,69 @@ class Synthesizer:
         w("| Field | Value |\n|---|---|")
         w(f"| Dossier ID | `{d.dossier_id}` |")
         w(f"| Generated (UTC) | {d.generated_at:%Y-%m-%d %H:%M:%S} |")
-        w(f"| Anomaly score | **{s.score} / 100** (raw total {s.raw_total} of {s.max_possible} possible; review threshold {d.scan.threshold}) |")
+        w(f"| Classification | **{priority}**: score **{s.score} / 100** (raw {s.raw_total} of {s.max_possible}; profile `{d.scan.scoring_profile}`; threshold {d.scan.threshold}) |")
+        if d.track:
+            w(f"| Suggested routing | {c(d.track.primary)} |")
         w(f"| Scan scope | state={d.scan.state or 'any'}; vertical={d.scan.vertical or 'custom'}; min award={_money(d.scan.min_award) if d.scan.min_award else 'none'}; "
           f"period={d.scan.start_date or '2007-10-01'} to {d.scan.end_date or 'today'} |")
+        if d.evidence_dir:
+            w(f"| Evidence directory | `{d.evidence_dir}` (verify with `sha256sum -c SHA256SUMS`) |")
         w(f"| Narrative author | {d.narrative_provenance.backend}{' / ' + d.narrative_provenance.model if d.narrative_provenance.model else ''}"
           f"{' (fell back to template: ' + c(d.narrative_provenance.fallback_reason) + ')' if d.narrative_provenance.fell_back_to_template else ''} |")
         w("")
 
-        w("## 1. Executive Summary\n")
+        w("## 1. Executive Summary & Lead Classification\n")
         w(d.executive_summary + "\n")
+        if d.track:
+            w("| Track | Indicated | Basis |\n|---|---|---|")
+            w(f"| A: criminal referral (e.g. agency OIG / DOJ whistleblower program) | {'yes' if d.track.track_a_criminal_referral else 'no'} | entity-level registration, premises, capacity or exclusion indicators |")
+            w(f"| B: civil False Claims Act / qui tam (via counsel) | {'yes' if d.track.track_b_civil_fca else 'no'} | multi-entity network, exclusion or reimbursement-volume indicators |")
+            w("")
+            for r in d.track.rationale:
+                w(f"- {r}")
+            w("")
 
-        w("## 2. Entity Profile\n")
+        w("## 2. Entity Identity & Federal Award Summary\n")
+        npi = enr.npi.best_match
         w("| Attribute | Value |\n|---|---|")
         w(f"| Legal name (USASpending) | {c(e.name)} |")
         if e.alternate_names:
             w(f"| Alternate names | {c('; '.join(e.alternate_names))} |")
         w(f"| UEI / DUNS / CAGE | {e.uei or 'n/a'} / {e.duns or 'n/a'} / {e.cage or 'n/a'} |")
+        w(f"| Organizational NPI | {f'{npi.npi} ({npi.organization_name}, status {npi.status})' if npi else ('none matched' if enr.npi.performed else 'not checked')} |")
         w(f"| Parent | {c(e.parent_name) or 'n/a'} ({e.parent_uei or 'n/a'}) |")
         w(f"| Address of record | {c(e.address.one_line) or 'n/a'} |")
         w(f"| Normalized location key | `{e.address.location_key or 'n/a'}` |")
         w(f"| Business types | {c(', '.join(e.business_types)) or 'n/a'} |")
         w(f"| Formation date | {e.formation_date or 'unknown'}{' (' + c(e.formation_date_source) + ')' if e.formation_date_source else ''} |")
         w(f"| Healthcare classification | {'yes: ' + c(e.healthcare_basis) if e.is_healthcare else 'no'} |")
-        w(f"| Officers / officials | {c('; '.join(f'{o.name} ({o.title or o.role_source})' for o in e.officers)) or 'none published'} |")
+        w(f"| Officers / officials / agents | {c('; '.join(f'{o.name} ({o.title or o.role_source})' for o in e.officers)) or 'none published'} |")
         w(f"| Total awarded (in scope) | **{_money(e.total_awarded)}** across {len(e.awards)} award(s) |")
         w("")
-        w("| Award ID | Type | Agency | Amount | Signed / Start | NAICS / PSC / Listing |\n|---|---|---|---:|---|---|")
-        for a in sorted(e.awards, key=lambda a: a.amount, reverse=True)[:15]:
+        w("| Award ID | Type | Agency | Amount | Signed / Start | End | NAICS / PSC / Listing |\n|---|---|---|---:|---|---|---|")
+        for a in sorted(e.awards, key=lambda a: a.amount, reverse=True)[:20]:
             codes = " / ".join(x for x in (a.naics_code, a.psc_code, ", ".join(a.program_numbers)) if x) or "n/a"
-            w(f"| {c(a.award_id)} | {c(a.award_type or a.award_group)} | {c(a.awarding_agency)} | {_money(a.amount)} | {a.effective_date or 'n/a'} | {c(codes)} |")
-        if len(e.awards) > 15:
-            w(f"\n_{len(e.awards) - 15} smaller award(s) omitted; see JSON dossier._")
+            w(f"| {c(a.award_id)} | {c(a.award_type or a.award_group)} | {c(a.awarding_agency)} | {_money(a.amount)} | {a.effective_date or 'n/a'} | {a.end_date or 'n/a'} | {c(codes)} |")
+        if len(e.awards) > 20:
+            w(f"\n_{len(e.awards) - 20} smaller award(s) omitted; see JSON dossier._")
         w("")
 
-        w("## 3. Deterministic Score Breakdown\n")
+        w("## 3. Flagged Discrepancies & Heuristic Breakdown\n")
         w(f"Scorer version `{s.scorer_version}`. Formula: `{s.formula}`\n")
         w("| Rule | Weight | Status | Points | Rationale |\n|---|---:|---|---:|---|")
         for ev in s.evaluations:
-            status = {"triggered": "**TRIGGERED**"}.get(ev.status.value, ev.status.value.replace("_", " "))
-            w(f"| {ev.rule_id}: {ev.title} | {ev.weight} | {status} | {ev.points_awarded} | {c(ev.rationale)} |")
+            status = "**TRIGGERED**" if ev.status is RuleStatus.TRIGGERED and ev.points_awarded else (
+                "triggered (unscored in profile)" if ev.status is RuleStatus.TRIGGERED else ev.status.value.replace("_", " "))
+            w(f"| `{ev.rule_id}`: {ev.title} | {ev.weight} | {status} | {ev.points_awarded} | {c(ev.rationale)} |")
         w(f"| **Total** | {s.max_possible} | | **{s.raw_total}** → score **{s.score}** | |")
         w("")
 
         w("## 4. Evidence Matrix\n")
         if not s.flags:
-            w("_No indicators triggered._\n")
+            w("_No scored indicators._\n")
         src_by_id = {r.record_id: r for r in d.sources}
         for f in s.flags:
-            w(f"### {f.rule_id}: {f.title} (+{f.score_contribution})\n")
+            w(f"### `{f.rule_id}`: {f.title} (+{f.score_contribution})\n")
             w("| # | Observation (field) | Observed value | Source record | Endpoint | Retrieved (UTC) |\n|---|---|---|---|---|---|")
             for i, ev in enumerate(f.evidence, 1):
                 rec = src_by_id.get(ev.source_record_id or "")
@@ -533,60 +621,114 @@ class Synthesizer:
                 w(f"| {i} | {c(ev.field)}{note} | {c(val)} | `{ev.source_record_id or 'n/a'}` | {endpoint} | {when} |")
             w("")
 
-        w("## 5. Specific Inconsistencies\n")
-        for f in s.flags:
-            w(f"- **{f.title}.** {f.description}")
+        w("## 5. Disbursement-to-Capacity Arithmetic\n")
+        cap = enr.capacity
+        lic = enr.license.best_match
+        if lic:
+            w(f"Matched state license: **{c(lic.facility_name)}**, license {lic.license_number or 'n/a'}, type {c(lic.license_type) or 'n/a'}, "
+              f"status {c(lic.status) or 'n/a'}, capacity **{lic.capacity if lic.capacity is not None else 'n/a'}** "
+              f"(source `{lic.source}`, name similarity {lic.name_similarity:.0f}, address match {'yes' if lic.address_match else 'no'}).\n")
+        elif enr.license.performed:
+            w(f"No state license matched ({enr.license.candidates_examined} candidates examined in {', '.join(enr.license.sources_queried)})"
+              f"{': ' + c(enr.license.error) if enr.license.error else ''}.\n")
+        if cap.performed:
+            w("| Input | Value |\n|---|---|")
+            w(f"| Benchmark | {c(cap.benchmark_label)} |")
+            w(f"| Unit rate (per beneficiary-day) | {_money(cap.unit_rate or 0)} |")
+            w(f"| Operating days / year | {cap.operating_days_per_year} |")
+            w(f"| Award total (benchmark-mapped awards) | {_money(cap.award_total or 0)} |")
+            w(f"| Period | {cap.period_start} to {cap.period_end} ({cap.period_years} yr; annualized over max(1, years)) |")
+            w(f"| Annualized disbursement | {_money(cap.annualized_disbursement or 0)} |")
+            w(f"| Estimated daily beneficiaries | **{cap.estimated_daily_beneficiaries:,.2f}** |")
+            w(f"| Licensed capacity | **{cap.licensed_capacity}** |")
+            w(f"| Ratio (threshold > {cap.ratio_threshold}) | **{cap.capacity_ratio:.3f}x** |")
+            w(f"\n`{cap.formula}`\n\n_Rate source: {c(cap.benchmark_citation)}_\n")
+        else:
+            w(f"_Not computed: {c(cap.reason_not_performed) or 'no capacity data'}_\n")
+
+        w("## 6. Physical Site Verification\n")
+        geo = enr.geocode
+        if geo.performed:
+            w(f"- **Census Geocoder**: {'matched `' + c(geo.matched_address) + f'` at ({geo.latitude}, {geo.longitude}), TIGER line {geo.tiger_line_id}' if geo.matched else 'no address match' + (' (' + c(geo.error) + ')' if geo.error else '')}.")
+        w(f"- **OpenStreetMap land use**: `{enr.land_use.classification.value}`" + (f" (nearest building tag `{enr.land_use.nearest_building_tag}`)" if enr.land_use.nearest_building_tag else "") + ".")
         for sig in enr.land_use.signals:
-            w(f"- _Premises signal ({enr.land_use.classification.value})_: {sig}")
-        if enr.geocode.performed:
-            if enr.geocode.matched:
-                w(f"- _Geocode_: Census matched `{enr.geocode.matched_address}` at ({enr.geocode.latitude}, {enr.geocode.longitude}), TIGER line {enr.geocode.tiger_line_id}.")
-            else:
-                w(f"- _Geocode_: address of record did not match a Census TIGER street segment{' (' + c(enr.geocode.error) + ')' if enr.geocode.error else ''}.")
-        if enr.npi.performed:
-            if enr.npi.best_match:
-                b = enr.npi.best_match
-                w(f"- _NPPES_: best match NPI {b.npi} '{b.organization_name}', status {b.status}, enumerated {b.enumeration_date}, "
-                  f"name similarity {b.name_similarity:.0f}, address match {'yes' if b.address_match else 'no'}.")
-            else:
-                w(f"- _NPPES_: no accepted organizational NPI match for queries {', '.join(f'`{q}`' for q in enr.npi.query_names)} "
-                  f"({enr.npi.candidates_examined} candidates examined).")
-        if not s.flags and not enr.land_use.signals:
-            w("- None recorded.")
+            w(f"  - {c(sig)}")
+        v = enr.vision
+        if v.assessment and v.imagery:
+            im, a = v.imagery, v.assessment
+            w(f"- **Street-level vision** ({c(v.model)}): `{a.category.value}`, confidence {a.confidence:.2f}; markers: {c(', '.join(a.physical_markers)) or 'none'}.")
+            w(f"  - Model rationale: _{c(a.rationale)}_")
+            w(f"  - Imagery: {im.provider} `{im.image_id}`, captured {im.captured_at or 'unknown'}, {im.distance_m} m from point, heading {im.heading_deg}°; "
+              f"SHA-256 `{(im.image_sha256 or '')[:16]}…`; {'archived in evidence folder' if im.stored_locally else 'not stored (provider terms)'}; {c(im.license_note)}")
+            if im.request_url:
+                w(f"  - Reference: `{c(im.request_url)}`")
+        else:
+            w(f"- **Street-level vision**: not available ({c(v.error) or 'not run'}).")
         w("")
 
-        w("## 6. Related Entities\n")
+        w("## 7. Exclusion Screening (HHS-OIG LEIE)\n")
+        L = enr.leie
+        if L.performed:
+            w(f"Screened {len(L.subjects_screened)} subject(s) against {L.dataset_rows:,} active exclusions (file `{c(L.dataset_path) or 'in-memory'}`, SHA-256 `{(L.dataset_sha256 or '')[:16]}…`).\n")
+            if L.matches:
+                w("| Subject | Role | Strength | Matched on | LEIE row | Excl. type | Excl. date |\n|---|---|---|---|---:|---|---|")
+                for m in L.matches:
+                    w(f"| {c(m.subject)} | {c(m.subject_role)} | {m.strength.value} | {', '.join(m.matched_on)} | {m.leie_row_number} | {c(m.exclusion_type)} | {m.exclusion_date or 'n/a'} |")
+                w("")
+            else:
+                w("_No matches._\n")
+        else:
+            w(f"_Not screened: {c(L.error) or 'no LEIE file supplied'}._\n")
+
+        w("## 8. Network Summary\n")
+        n = d.network
+        w(f"Connected component: **{len(n.component_entities)}** awardee(s), {_money(n.component_total_awarded)} total awarded in scope. "
+          "Graphviz DOT of the component is in the JSON dossier (`network.dot`).\n")
+        for sa in n.shared_addresses:
+            w(f"- Shared address `{c(sa['address'])}`: {c('; '.join(sa['entities']))}")
+        for sp in n.shared_people:
+            w(f"- Shared person '{c(sp['person'])}': {c('; '.join(sp['entities']))}")
         if d.related_entities:
-            w("| Entity | UEI | Address | Total awarded | Officers | Linked by |\n|---|---|---|---:|---|---|")
+            w("\n| Related entity | UEI | Address | Total awarded | People | Linked by |\n|---|---|---|---:|---|---|")
             for r in d.related_entities:
                 w(f"| {c(r['name'])} | {r['uei'] or 'n/a'} | {c(r['address'])} | {_money(r['total_awarded'])} | {c('; '.join(r['officers']))} | {', '.join(r['linked_by'])} |")
-        else:
-            w("_None identified within scan scope._")
         w("")
 
-        w("## 7. Statutory Cross-References\n")
+        w("## 9. Relevant Statutory Frameworks\n")
         w("_Frameworks a reviewing authority may consider if, and only if, independent verification substantiates the "
           "observations. Listing a statute is not a legal conclusion. Consult qualified counsel._\n")
         for st in d.statutory_references:
             w(f"- **{st['name']}**, {st['citation']}: {st['relevance']}")
         w("")
 
-        w("## 8. Recommended Ground-Truthing Checklist\n")
+        w("## 10. Ground-Truthing Field Checklist\n")
+        w("_Follow `docs/FIELD_INVESTIGATOR_SOP.md`. Public records and public right-of-way observation only._\n")
         for item in d.ground_truthing_checklist:
             w(f"- [ ] {item}")
         w("")
 
-        w("## 9. Caveats & Limitations\n")
+        w("## 11. Final Pre-Filing Review\n")
+        w("_A short final check before anything is filed. It assumes section 10 is complete; it does not replace it._\n")
+        for item in FINAL_REVIEW_CHECKLIST:
+            w(f"- [ ] {item}")
+        w("")
+
+        w("## 12. Caveats & Limitations\n")
         for cv in d.caveats:
             w(f"- {cv}")
         w("")
 
-        w("## 10. Source Ledger (Chain of Custody)\n")
-        w("| Record | Source | Request | HTTP | Retrieved (UTC) | Attempts | SHA-256 (prefix) |\n|---|---|---|---|---|---:|---|")
+        w("## 13. Chain of Custody\n")
+        if d.evidence_manifest:
+            w(f"Raw artifacts archived write-once under `{d.evidence_dir}`. `SHA256SUMS` there covers every file, including this dossier.\n")
+            w("| Artifact | Kind | Bytes | SHA-256 | Source URL | Retrieved (UTC) |\n|---|---|---:|---|---|---|")
+            for art in d.evidence_manifest:
+                w(f"| `{art.path}` | {art.kind} | {art.bytes:,} | `{art.sha256[:16]}…` | {c((art.source_url or '')[:90])} | {f'{art.retrieved_at:%Y-%m-%d %H:%M:%S}' if art.retrieved_at else ''} |")
+            w("")
+        w("| Record | Source | Request | HTTP | Retrieved (UTC) | Attempts | Response SHA-256 (prefix) |\n|---|---|---|---|---|---:|---|")
         for r in d.sources:
-            w(f"| `{r.record_id}` | {r.source} | `{r.method} {c(r.url)}` | {r.status_code or c(r.error)} | {r.retrieved_at:%Y-%m-%d %H:%M:%S} | {r.attempts} | `{(r.response_sha256 or '')[:16]}` |")
-        w("\nFull raw response snapshots and request bodies are embedded in the companion JSON dossier (`sources[].raw_snippet`).\n")
-
+            w(f"| `{r.record_id}` | {r.source} | `{r.method} {c(r.url)}` | {r.status_code or c(r.error) or ''} | {r.retrieved_at:%Y-%m-%d %H:%M:%S} | {r.attempts} | `{(r.response_sha256 or '')[:16]}` |")
+        w("")
         w("---\n")
         w(f"_{d.disclaimer}_\n")
         return "\n".join(out)

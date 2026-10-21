@@ -1,0 +1,10 @@
+{
+  "dataset": "in-memory",
+  "dataset_sha256": "96e7b44804e7f0dafa879defc0b8b937cb6fba7e0afee6663001bfb3454a40ed",
+  "dataset_rows": 2,
+  "subjects_screened": [
+    "NORTHFIELD EXAMPLE HOME HEALTH LLC",
+    "Jordan A. Sample"
+  ],
+  "matched_rows": []
+}

@@ -7,8 +7,14 @@ from scrimmy.models import (
 )
 from scrimmy.normalize import normalize_address, normalize_entity_name, normalize_person_name
 from scrimmy.scorer import (
-    RULE_COLOCATION, RULE_EXEC_DUP, RULE_NEWLY_FORMED, RULE_PHANTOM_HEALTH, RULE_RESIDENTIAL,
-    DeterministicScorer, ScoringConfig, ScoringContext,
+    CO_LOCATED_SHELL_CLUSTER as RULE_COLOCATION,
+    EXECUTIVE_SERIAL_REGISTRATION as RULE_EXEC_DUP,
+    HIGH_DOLLAR_RESIDENTIAL_ZONE as RULE_RESIDENTIAL,
+    NEWLY_FORMED_WINDFALL as RULE_NEWLY_FORMED,
+    PHANTOM_HEALTHCARE_PROVIDER as RULE_PHANTOM_HEALTH,
+    DeterministicScorer,
+    ScoringConfig,
+    ScoringContext,
 )
 
 
@@ -138,9 +144,10 @@ def test_score_is_capped_sum_with_formula():
     c = entity("C", "Charlie Partners", "9 Example Way")
     pairs = [(a, enr(LandUseClass.RESIDENTIAL, NPIMatchResult(performed=True))), (b, enr()), (c, enr())]
     bd = run(pairs, "A")
-    assert bd.raw_total == 115 and bd.score == 100 and bd.max_possible == 115
+    # registry profile: newly formed 20 + residential 25 + no NPI 30 + co-location 20 + serial 15 = 110
+    assert bd.raw_total == 110 and bd.score == 100 and bd.max_possible == 160
     assert len(bd.flags) == 5
-    assert bd.formula.endswith("= min(100, 115) = 100")
+    assert "= min(100, 110) = 100" in bd.formula
 
 
 def test_weights_are_configurable_and_deterministic():

@@ -1,0 +1,32 @@
+{
+  "_readme": "State licensing sources for capacity arithmetic. Each source is read-only public data. 'fields' is optional: any field you leave out is auto-detected from column names, and the mapping actually used is recorded in each dossier's evidence. Verify every dataset id, domain and column before relying on it.",
+  "sources": [
+    {
+      "key": "tx_hhsc_ccl_operations",
+      "kind": "socrata",
+      "states": ["TX"],
+      "verticals": ["childcare"],
+      "domain": "data.texas.gov",
+      "dataset_id": "bc5r-88dy",
+      "note": "HHSC CCL Daycare and Residential Operations Data (Socrata id from the data.gov catalog). NOT VERIFIED from the build environment: confirm the domain, that a capacity column exists, and the field names before use."
+    },
+    {
+      "key": "mn_child_care_export",
+      "kind": "csv",
+      "states": ["MN"],
+      "verticals": ["childcare"],
+      "path": "../data/mn_licensed_child_care_export.csv",
+      "fields": {
+        "name": "Program Name",
+        "address": "Address",
+        "city": "City",
+        "zip": "Zip",
+        "capacity": "Capacity",
+        "license_type": "License Type",
+        "status": "License Status",
+        "license_number": "License Number"
+      },
+      "note": "Example of an operator-downloaded export from a state licensing lookup. Column names here are placeholders: set them to match your file."
+    }
+  ]
+}

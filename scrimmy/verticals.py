@@ -24,8 +24,8 @@ class Vertical:
 VERTICALS: dict[str, Vertical] = {
     "childcare": Vertical(
         key="childcare",
-        label="Child care, early education and child nutrition",
-        naics_codes=["624410"],
+        label="Child day care and child nutrition services",
+        naics_codes=["624410", "624210"],
         program_numbers=[
             "93.575",  # Child Care and Development Block Grant
             "93.596",  # Child Care Mandatory and Matching Funds of the CCDF
@@ -34,36 +34,53 @@ VERTICALS: dict[str, Vertical] = {
             "10.559",  # Summer Food Service Program for Children
         ],
         caveats=[
-            "Licensed family child care homes legitimately operate from residences. A residential "
-            "classification is expected for that license type and must be weighed against award size and "
-            "licensed capacity before drawing any inference.",
-            "CCDF and CACFP funds generally flow through state agencies and sponsoring organizations; the "
-            "prime recipient in USASpending may be a pass-through rather than the site operator.",
+            "Licensed family child care homes legitimately operate from residences. A residential classification is "
+            "expected for that license type and must be weighed against award size and licensed capacity.",
+            "CCDF and CACFP funds generally flow through state agencies and sponsoring organizations; the prime recipient "
+            "in USASpending may be a pass-through or sponsor rather than the site operator.",
+        ],
+    ),
+    "home_health": Vertical(
+        key="home_health",
+        label="Home health care services",
+        naics_codes=["621610"],
+        program_numbers=["93.778", "93.791", "93.044", "93.045"],
+        healthcare=True,
+        caveats=[
+            "Home health agencies deliver care in clients' homes and often keep small administrative offices, so premises "
+            "appearance is weak evidence; site visits should target the business office of record.",
+        ],
+    ),
+    "hospice": Vertical(
+        key="hospice",
+        label="Hospice, nursing and elder-care facilities",
+        naics_codes=["623110", "624120"],
+        program_numbers=["93.778", "93.044", "93.045", "93.791"],
+        healthcare=True,
+        caveats=[
+            "Hospice is reimbursed per patient-day and is often delivered in patients' residences or nursing facilities; "
+            "a hospice agency's office need not house patients. 623110 also covers skilled nursing facilities.",
+        ],
+    ),
+    "clinics": Vertical(
+        key="clinics",
+        label="Specialized medical and outpatient clinics",
+        naics_codes=["621498", "621999"],
+        program_numbers=["93.224", "93.527", "93.498", "93.959", "93.788"],
+        healthcare=True,
+        caveats=[
+            "Some health-related recipients (grant administrators, research institutions, public health agencies) are not "
+            "billing providers and are not required to hold an organizational NPI.",
         ],
     ),
     "healthcare": Vertical(
         key="healthcare",
-        label="Health care providers and services",
+        label="Health care providers and services (broad)",
         naics_codes=["621111", "621210", "621330", "621340", "621399", "621410", "621420", "621491",
                      "621498", "621511", "621610", "621910", "621999", "622110", "623110", "623210", "623312"],
         psc_codes=["Q201", "Q301", "Q401", "Q501", "Q999"],
         program_numbers=["93.224", "93.527", "93.498", "93.461", "93.959", "93.788"],
         healthcare=True,
-        caveats=[
-            "Some health-related recipients (e.g. grant administrators, research institutions, public health "
-            "agencies) are not billing providers and are not required to hold an organizational NPI.",
-        ],
-    ),
-    "home_health": Vertical(
-        key="home_health",
-        label="Home health, personal care and housing stabilization services",
-        naics_codes=["621610", "624120", "623990"],
-        program_numbers=["93.778", "93.791", "93.044", "93.045"],
-        healthcare=True,
-        caveats=[
-            "Home-and-community-based service agencies often maintain small administrative offices; "
-            "care is delivered in clients' homes, so site visits should target the business office of record.",
-        ],
     ),
     "behavioral_health": Vertical(
         key="behavioral_health",
@@ -85,6 +102,9 @@ VERTICALS: dict[str, Vertical] = {
         program_numbers=["14.871", "14.231", "21.023", "14.267"],
     ),
 }
+
+# The default target set when no vertical is chosen ("DOJ priority verticals" in the project brief).
+PRIORITY_VERTICALS = ["childcare", "home_health", "hospice", "clinics"]
 
 # NAICS prefixes treated as healthcare when deciding whether NPPES checks apply.
 HEALTHCARE_NAICS_PREFIXES = ("621", "622", "623")

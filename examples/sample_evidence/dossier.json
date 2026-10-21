@@ -1,0 +1,1802 @@
+{
+  "schema_version": "1.0.0",
+  "dossier_id": "SCRIMMY-20261021-855CE0663CA0",
+  "generated_at": "2026-10-21T04:57:40.695013Z",
+  "scan": {
+    "started_at": "2026-10-21T04:57:28.135060Z",
+    "state": "MN",
+    "zip_codes": [],
+    "vertical": "home_health",
+    "naics_codes": [
+      "621610"
+    ],
+    "psc_codes": [],
+    "program_numbers": [
+      "93.778",
+      "93.791",
+      "93.044",
+      "93.045"
+    ],
+    "award_groups": [
+      "contracts",
+      "grants"
+    ],
+    "min_award": 50000.0,
+    "max_award": null,
+    "start_date": "2023-10-01",
+    "end_date": "2026-09-30",
+    "max_awards": 100,
+    "threshold": 50,
+    "scoring_profile": "registry",
+    "tool_version": "0.1.0"
+  },
+  "entity": {
+    "entity_key": "UEI:EXMPLA000001",
+    "name": "NORTHFIELD EXAMPLE HOME HEALTH LLC",
+    "normalized_name": "NORTHFIELD EXAMPLE HOME HEALTH",
+    "alternate_names": [],
+    "uei": "EXMPLA000001",
+    "duns": null,
+    "cage": null,
+    "usaspending_recipient_id": "00000000-0000-0000-0000-0000aa000001-C",
+    "parent_uei": null,
+    "parent_name": null,
+    "address": {
+      "line1": "4410 EXAMPLE LANE",
+      "line2": null,
+      "city": "LAKEVIEW FALLS",
+      "state": "MN",
+      "zip5": "55990",
+      "zip4": null,
+      "county": "EXAMPLE",
+      "country": "USA",
+      "normalized_street": "4410 EXAMPLE LN",
+      "normalized_unit": null,
+      "is_po_box": false,
+      "is_pmb": false,
+      "one_line": "4410 EXAMPLE LANE, LAKEVIEW FALLS, MN 55990",
+      "location_key": "4410 EXAMPLE LN|55990",
+      "locality_key": "LAKEVIEW FALLS|MN"
+    },
+    "business_types": [
+      "Limited Liability Corporation",
+      "Small Business",
+      "category_business",
+      "small_business"
+    ],
+    "awards": [
+      {
+        "award_id": "36C26325P0001",
+        "generated_internal_id": "CONT_AWD_36C26325P0001_3600",
+        "award_group": "contracts",
+        "amount": 1240000.0,
+        "start_date": "2025-03-03",
+        "date_signed": "2025-03-03",
+        "end_date": "2026-09-30",
+        "awarding_agency": "Department of Veterans Affairs",
+        "awarding_sub_agency": "Department of Veterans Affairs",
+        "award_type": "PURCHASE ORDER",
+        "naics_code": "621610",
+        "psc_code": "Q201",
+        "program_numbers": [],
+        "description": "SYNTHETIC DEMO AWARD",
+        "source_record_ids": [
+          "SRC-00001-d28314550a",
+          "SRC-00006-98c58fe514"
+        ],
+        "effective_date": "2025-03-03"
+      },
+      {
+        "award_id": "EXMPL-GRANT-0001",
+        "generated_internal_id": "ASST_NON_EXMPLGRANT0001_7530",
+        "award_group": "grants",
+        "amount": 310000.0,
+        "start_date": "2025-04-21",
+        "date_signed": "2025-04-21",
+        "end_date": "2026-09-30",
+        "awarding_agency": "Department of Health and Human Services",
+        "awarding_sub_agency": "Department of Health and Human Services",
+        "award_type": "PROJECT GRANT (B)",
+        "naics_code": null,
+        "psc_code": null,
+        "program_numbers": [
+          "93.791"
+        ],
+        "description": "SYNTHETIC DEMO AWARD",
+        "source_record_ids": [
+          "SRC-00002-5558f56104",
+          "SRC-00007-fd7e2ad97d"
+        ],
+        "effective_date": "2025-04-21"
+      }
+    ],
+    "officers": [
+      {
+        "name": "Jordan A. Sample",
+        "normalized_name": "JORDAN SAMPLE",
+        "title": "Highly compensated officer",
+        "role_source": "usaspending.executive_details",
+        "source_record_ids": [
+          "SRC-00006-98c58fe514",
+          "SRC-00007-fd7e2ad97d"
+        ]
+      }
+    ],
+    "formation_date": "2025-01-06",
+    "formation_date_source": "operator_csv: SYNTHETIC demo record standing in for a Secretary of State filing",
+    "formation_source_record_ids": [],
+    "is_healthcare": true,
+    "healthcare_basis": "award NAICS 621610; Assistance Listing 93.791 in healthcare vertical 'home_health'",
+    "source_record_ids": [
+      "SRC-00001-d28314550a",
+      "SRC-00002-5558f56104",
+      "SRC-00005-090d1f627a"
+    ],
+    "total_awarded": 1550000.0
+  },
+  "enrichment": {
+    "npi": {
+      "performed": true,
+      "query_names": [
+        "NORTHFIELD EXAMPLE HOME HEALTH*",
+        "NORTHFIELD EXAMPLE*"
+      ],
+      "candidates_examined": 0,
+      "matches": [],
+      "best_match": null,
+      "active_npi_found": false,
+      "error": null,
+      "source_record_ids": [
+        "SRC-00029-cfcec24422",
+        "SRC-00030-ea7a787235"
+      ]
+    },
+    "geocode": {
+      "performed": true,
+      "matched": true,
+      "input_address": "4410 EXAMPLE LANE, LAKEVIEW FALLS, MN 55990",
+      "matched_address": "4410 EXAMPLE LANE, LAKEVIEW FALLS, MN, 55990",
+      "latitude": 45.0001,
+      "longitude": -93.5001,
+      "tiger_line_id": "999995040",
+      "tiger_side": "L",
+      "error": null,
+      "source_record_ids": [
+        "SRC-00027-6bb37001b5"
+      ]
+    },
+    "land_use": {
+      "performed": true,
+      "classification": "residential",
+      "signals": [
+        "Nearest mapped structure is tagged building=house (residential).",
+        "No commercial, office or service POIs mapped within 40m."
+      ],
+      "nearest_building_tag": "house",
+      "landuse_tags": [
+        "residential"
+      ],
+      "commercial_pois": [],
+      "mail_drop_pois": [],
+      "search_radius_m": 40,
+      "error": null,
+      "source_record_ids": [
+        "SRC-00028-e278d3d52c"
+      ]
+    },
+    "leie": {
+      "performed": true,
+      "dataset_path": null,
+      "dataset_sha256": "96e7b44804e7f0dafa879defc0b8b937cb6fba7e0afee6663001bfb3454a40ed",
+      "dataset_rows": 2,
+      "subjects_screened": [
+        "NORTHFIELD EXAMPLE HOME HEALTH LLC",
+        "Jordan A. Sample"
+      ],
+      "matches": [],
+      "error": null,
+      "source_record_ids": [
+        "SRC-00031-da2745ce0f"
+      ]
+    },
+    "license": {
+      "performed": true,
+      "sources_queried": [
+        "socrata:data.example.gov/exmp-l1c3"
+      ],
+      "candidates_examined": 2,
+      "best_match": null,
+      "error": null,
+      "source_record_ids": [
+        "SRC-00032-4b96cad94d",
+        "SRC-00033-0013bad5c8"
+      ]
+    },
+    "capacity": {
+      "performed": false,
+      "benchmark_key": null,
+      "benchmark_label": null,
+      "unit_rate": null,
+      "operating_days_per_year": null,
+      "benchmark_citation": null,
+      "award_total": null,
+      "period_start": null,
+      "period_end": null,
+      "period_years": null,
+      "annualized_disbursement": null,
+      "estimated_daily_beneficiaries": null,
+      "licensed_capacity": null,
+      "capacity_ratio": null,
+      "ratio_threshold": 2.0,
+      "formula": null,
+      "reason_not_performed": "No award maps to a per-beneficiary benchmark (program/NAICS/vertical)."
+    },
+    "vision": {
+      "performed": false,
+      "imagery": null,
+      "assessment": null,
+      "model": null,
+      "raw_model_output": null,
+      "error": null
+    },
+    "notes": []
+  },
+  "score": {
+    "entity_key": "UEI:EXMPLA000001",
+    "evaluations": [
+      {
+        "rule_id": "LEIE_EXCLUSION_MATCH",
+        "title": "Match to HHS-OIG List of Excluded Individuals/Entities",
+        "weight": 40,
+        "status": "not_triggered",
+        "points_awarded": 0,
+        "rationale": "No LEIE match for 2 subject(s) screened against 2 active exclusions.",
+        "evidence": [],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "MATHEMATICAL_IMPOSSIBILITY",
+        "title": "Statistically Anomalous Disbursement-to-Capacity Ratio",
+        "weight": 0,
+        "status": "insufficient_data",
+        "points_awarded": 0,
+        "rationale": "No award maps to a per-beneficiary benchmark (program/NAICS/vertical).",
+        "evidence": [],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "PHANTOM_HEALTHCARE_PROVIDER",
+        "title": "Healthcare Recipient Without Active Organizational NPI",
+        "weight": 30,
+        "status": "triggered",
+        "points_awarded": 30,
+        "rationale": "Healthcare-classified recipient (award NAICS 621610; Assistance Listing 93.791 in healthcare vertical 'home_health') has no active Type-2 (organizational) NPI in NPPES matching its name in MN after 2 query variant(s) and 0 candidate record(s). Unverified provider-registration discrepancy.",
+        "evidence": [
+          {
+            "source_record_id": "SRC-00029-cfcec24422",
+            "source_url": "https://npiregistry.cms.hhs.gov/api/?version=2.1&enumeration_type=NPI-2&organization_name=NORTHFIELD+EXAMPLE+HOME+HEALTH%2A&state=MN&limit=200",
+            "retrieved_at": "2026-10-21T04:57:35.939470Z",
+            "field": "nppes.results",
+            "observed_value": {
+              "queries": [
+                "NORTHFIELD EXAMPLE HOME HEALTH*",
+                "NORTHFIELD EXAMPLE*"
+              ],
+              "state": "MN",
+              "candidates_examined": 0,
+              "accepted_matches": []
+            },
+            "note": "healthcare basis: award NAICS 621610; Assistance Listing 93.791 in healthcare vertical 'home_health'"
+          },
+          {
+            "source_record_id": "SRC-00030-ea7a787235",
+            "source_url": "https://npiregistry.cms.hhs.gov/api/?version=2.1&enumeration_type=NPI-2&organization_name=NORTHFIELD+EXAMPLE%2A&state=MN&limit=200",
+            "retrieved_at": "2026-10-21T04:57:36.290024Z",
+            "field": "nppes.results",
+            "observed_value": {
+              "queries": [
+                "NORTHFIELD EXAMPLE HOME HEALTH*",
+                "NORTHFIELD EXAMPLE*"
+              ],
+              "state": "MN",
+              "candidates_examined": 0,
+              "accepted_matches": []
+            },
+            "note": "healthcare basis: award NAICS 621610; Assistance Listing 93.791 in healthcare vertical 'home_health'"
+          }
+        ],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "HIGH_DOLLAR_RESIDENTIAL_ZONE",
+        "title": "High-Dollar Award at Residential / Mail-Drop Address",
+        "weight": 25,
+        "status": "triggered",
+        "points_awarded": 25,
+        "rationale": "$1,550,000.00 awarded to an address of record that resolves to a mapped residential structure. Statistically anomalous disbursement-to-presence ratio; unverified physical discrepancy.",
+        "evidence": [
+          {
+            "source_record_id": "SRC-00001-d28314550a",
+            "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+            "retrieved_at": "2026-10-21T04:57:28.136021Z",
+            "field": "award.amount",
+            "observed_value": {
+              "award_id": "36C26325P0001",
+              "amount": 1240000.0
+            },
+            "note": null
+          },
+          {
+            "source_record_id": "SRC-00002-5558f56104",
+            "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+            "retrieved_at": "2026-10-21T04:57:28.486431Z",
+            "field": "award.amount",
+            "observed_value": {
+              "award_id": "EXMPL-GRANT-0001",
+              "amount": 310000.0
+            },
+            "note": null
+          },
+          {
+            "source_record_id": null,
+            "source_url": null,
+            "retrieved_at": null,
+            "field": "sum(award.amount)",
+            "observed_value": 1550000.0,
+            "note": "derived: 2 award(s) in scope"
+          },
+          {
+            "source_record_id": "SRC-00027-6bb37001b5",
+            "source_url": "https://geocoding.geo.census.gov/geocoder/locations/address?street=4410+EXAMPLE+LANE&city=LAKEVIEW+FALLS&state=MN&zip=55990&benchmark=Public_AR_Current&format=json",
+            "retrieved_at": "2026-10-21T04:57:34.941801Z",
+            "field": "census.addressMatches[0]",
+            "observed_value": {
+              "input": "4410 EXAMPLE LANE, LAKEVIEW FALLS, MN 55990",
+              "matched": "4410 EXAMPLE LANE, LAKEVIEW FALLS, MN, 55990",
+              "lat": 45.0001,
+              "lon": -93.5001
+            },
+            "note": null
+          },
+          {
+            "source_record_id": "SRC-00028-e278d3d52c",
+            "source_url": "https://overpass-api.de/api/interpreter",
+            "retrieved_at": "2026-10-21T04:57:35.938760Z",
+            "field": "osm.classification",
+            "observed_value": {
+              "classification": "residential",
+              "signals": [
+                "Nearest mapped structure is tagged building=house (residential).",
+                "No commercial, office or service POIs mapped within 40m."
+              ],
+              "nearest_building": "house",
+              "landuse": [
+                "residential"
+              ]
+            },
+            "note": null
+          }
+        ],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "PHYSICAL_SITE_MISMATCH",
+        "title": "Unverified Operating Capacity at Observed Site",
+        "weight": 0,
+        "status": "not_applicable",
+        "points_awarded": 0,
+        "rationale": "Funded services are not delivered at the recipient's premises (e.g. home health), so site appearance is not probative.",
+        "evidence": [],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "NEWLY_FORMED_WINDFALL",
+        "title": "Newly Formed Windfall",
+        "weight": 20,
+        "status": "triggered",
+        "points_awarded": 20,
+        "rationale": "Award 36C26325P0001 ($1,240,000.00) has an effective date 56 days after the recorded formation date 2025-01-06 (threshold: < 120 days). High-variance award-to-operating-history ratio.",
+        "evidence": [
+          {
+            "source_record_id": null,
+            "source_url": null,
+            "retrieved_at": null,
+            "field": "formation_date",
+            "observed_value": "2025-01-06",
+            "note": "source: operator_csv: SYNTHETIC demo record standing in for a Secretary of State filing"
+          },
+          {
+            "source_record_id": "SRC-00001-d28314550a",
+            "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+            "retrieved_at": "2026-10-21T04:57:28.136021Z",
+            "field": "award.effective_date / amount",
+            "observed_value": {
+              "award_id": "36C26325P0001",
+              "date": "2025-03-03",
+              "amount": 1240000.0
+            },
+            "note": null
+          },
+          {
+            "source_record_id": "SRC-00006-98c58fe514",
+            "source_url": "https://api.usaspending.gov/api/v2/awards/CONT_AWD_36C26325P0001_3600/",
+            "retrieved_at": "2026-10-21T04:57:29.886267Z",
+            "field": "award.effective_date / amount",
+            "observed_value": {
+              "award_id": "36C26325P0001",
+              "date": "2025-03-03",
+              "amount": 1240000.0
+            },
+            "note": null
+          }
+        ],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "CO_LOCATED_SHELL_CLUSTER",
+        "title": "Unresolved Corporate Co-location",
+        "weight": 20,
+        "status": "not_triggered",
+        "points_awarded": 0,
+        "rationale": "1 unrelated awardee group(s) at this exact address (threshold: 3).",
+        "evidence": [],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "EXECUTIVE_SERIAL_REGISTRATION",
+        "title": "Serial Officer / Agent Registration",
+        "weight": 15,
+        "status": "triggered",
+        "points_awarded": 15,
+        "rationale": "'Jordan A. Sample' is listed on 2 unrelated awardees in LAKEVIEW FALLS, MN (threshold: 2). Anomalous officer-overlap pattern.",
+        "evidence": [
+          {
+            "source_record_id": "SRC-00006-98c58fe514",
+            "source_url": "https://api.usaspending.gov/api/v2/awards/CONT_AWD_36C26325P0001_3600/",
+            "retrieved_at": "2026-10-21T04:57:29.886267Z",
+            "field": "NORTHFIELD EXAMPLE HOME HEALTH LLC.officers",
+            "observed_value": "Jordan A. Sample",
+            "note": null
+          },
+          {
+            "source_record_id": "SRC-00019-4495301c36",
+            "source_url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLGRANT0003_7530/",
+            "retrieved_at": "2026-10-21T04:57:34.436210Z",
+            "field": "LAKEVIEW EXAMPLE PERSONAL CARE LLC.officers",
+            "observed_value": "SAMPLE, JORDAN",
+            "note": "Name-only match; identity of the individual is not confirmed."
+          }
+        ],
+        "related_entity_keys": [
+          "UEI:EXMPLC000003"
+        ]
+      },
+      {
+        "rule_id": "UNRESOLVED_PHYSICAL_DISCREPANCY",
+        "title": "Unresolved Physical Discrepancy",
+        "weight": 10,
+        "status": "not_triggered",
+        "points_awarded": 0,
+        "rationale": "Census matched '4410 EXAMPLE LANE, LAKEVIEW FALLS, MN, 55990'.",
+        "evidence": [
+          {
+            "source_record_id": "SRC-00027-6bb37001b5",
+            "source_url": "https://geocoding.geo.census.gov/geocoder/locations/address?street=4410+EXAMPLE+LANE&city=LAKEVIEW+FALLS&state=MN&zip=55990&benchmark=Public_AR_Current&format=json",
+            "retrieved_at": "2026-10-21T04:57:34.941801Z",
+            "field": "census.addressMatches",
+            "observed_value": {
+              "input": "4410 EXAMPLE LANE, LAKEVIEW FALLS, MN 55990",
+              "matched": "4410 EXAMPLE LANE, LAKEVIEW FALLS, MN, 55990"
+            },
+            "note": null
+          }
+        ],
+        "related_entity_keys": []
+      }
+    ],
+    "flags": [
+      {
+        "rule_id": "PHANTOM_HEALTHCARE_PROVIDER",
+        "title": "Healthcare Recipient Without Active Organizational NPI",
+        "description": "Healthcare-classified recipient (award NAICS 621610; Assistance Listing 93.791 in healthcare vertical 'home_health') has no active Type-2 (organizational) NPI in NPPES matching its name in MN after 2 query variant(s) and 0 candidate record(s). Unverified provider-registration discrepancy.",
+        "score_contribution": 30,
+        "evidence": [
+          {
+            "source_record_id": "SRC-00029-cfcec24422",
+            "source_url": "https://npiregistry.cms.hhs.gov/api/?version=2.1&enumeration_type=NPI-2&organization_name=NORTHFIELD+EXAMPLE+HOME+HEALTH%2A&state=MN&limit=200",
+            "retrieved_at": "2026-10-21T04:57:35.939470Z",
+            "field": "nppes.results",
+            "observed_value": {
+              "queries": [
+                "NORTHFIELD EXAMPLE HOME HEALTH*",
+                "NORTHFIELD EXAMPLE*"
+              ],
+              "state": "MN",
+              "candidates_examined": 0,
+              "accepted_matches": []
+            },
+            "note": "healthcare basis: award NAICS 621610; Assistance Listing 93.791 in healthcare vertical 'home_health'"
+          },
+          {
+            "source_record_id": "SRC-00030-ea7a787235",
+            "source_url": "https://npiregistry.cms.hhs.gov/api/?version=2.1&enumeration_type=NPI-2&organization_name=NORTHFIELD+EXAMPLE%2A&state=MN&limit=200",
+            "retrieved_at": "2026-10-21T04:57:36.290024Z",
+            "field": "nppes.results",
+            "observed_value": {
+              "queries": [
+                "NORTHFIELD EXAMPLE HOME HEALTH*",
+                "NORTHFIELD EXAMPLE*"
+              ],
+              "state": "MN",
+              "candidates_examined": 0,
+              "accepted_matches": []
+            },
+            "note": "healthcare basis: award NAICS 621610; Assistance Listing 93.791 in healthcare vertical 'home_health'"
+          }
+        ],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "HIGH_DOLLAR_RESIDENTIAL_ZONE",
+        "title": "High-Dollar Award at Residential / Mail-Drop Address",
+        "description": "$1,550,000.00 awarded to an address of record that resolves to a mapped residential structure. Statistically anomalous disbursement-to-presence ratio; unverified physical discrepancy.",
+        "score_contribution": 25,
+        "evidence": [
+          {
+            "source_record_id": "SRC-00001-d28314550a",
+            "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+            "retrieved_at": "2026-10-21T04:57:28.136021Z",
+            "field": "award.amount",
+            "observed_value": {
+              "award_id": "36C26325P0001",
+              "amount": 1240000.0
+            },
+            "note": null
+          },
+          {
+            "source_record_id": "SRC-00002-5558f56104",
+            "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+            "retrieved_at": "2026-10-21T04:57:28.486431Z",
+            "field": "award.amount",
+            "observed_value": {
+              "award_id": "EXMPL-GRANT-0001",
+              "amount": 310000.0
+            },
+            "note": null
+          },
+          {
+            "source_record_id": null,
+            "source_url": null,
+            "retrieved_at": null,
+            "field": "sum(award.amount)",
+            "observed_value": 1550000.0,
+            "note": "derived: 2 award(s) in scope"
+          },
+          {
+            "source_record_id": "SRC-00027-6bb37001b5",
+            "source_url": "https://geocoding.geo.census.gov/geocoder/locations/address?street=4410+EXAMPLE+LANE&city=LAKEVIEW+FALLS&state=MN&zip=55990&benchmark=Public_AR_Current&format=json",
+            "retrieved_at": "2026-10-21T04:57:34.941801Z",
+            "field": "census.addressMatches[0]",
+            "observed_value": {
+              "input": "4410 EXAMPLE LANE, LAKEVIEW FALLS, MN 55990",
+              "matched": "4410 EXAMPLE LANE, LAKEVIEW FALLS, MN, 55990",
+              "lat": 45.0001,
+              "lon": -93.5001
+            },
+            "note": null
+          },
+          {
+            "source_record_id": "SRC-00028-e278d3d52c",
+            "source_url": "https://overpass-api.de/api/interpreter",
+            "retrieved_at": "2026-10-21T04:57:35.938760Z",
+            "field": "osm.classification",
+            "observed_value": {
+              "classification": "residential",
+              "signals": [
+                "Nearest mapped structure is tagged building=house (residential).",
+                "No commercial, office or service POIs mapped within 40m."
+              ],
+              "nearest_building": "house",
+              "landuse": [
+                "residential"
+              ]
+            },
+            "note": null
+          }
+        ],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "NEWLY_FORMED_WINDFALL",
+        "title": "Newly Formed Windfall",
+        "description": "Award 36C26325P0001 ($1,240,000.00) has an effective date 56 days after the recorded formation date 2025-01-06 (threshold: < 120 days). High-variance award-to-operating-history ratio.",
+        "score_contribution": 20,
+        "evidence": [
+          {
+            "source_record_id": null,
+            "source_url": null,
+            "retrieved_at": null,
+            "field": "formation_date",
+            "observed_value": "2025-01-06",
+            "note": "source: operator_csv: SYNTHETIC demo record standing in for a Secretary of State filing"
+          },
+          {
+            "source_record_id": "SRC-00001-d28314550a",
+            "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+            "retrieved_at": "2026-10-21T04:57:28.136021Z",
+            "field": "award.effective_date / amount",
+            "observed_value": {
+              "award_id": "36C26325P0001",
+              "date": "2025-03-03",
+              "amount": 1240000.0
+            },
+            "note": null
+          },
+          {
+            "source_record_id": "SRC-00006-98c58fe514",
+            "source_url": "https://api.usaspending.gov/api/v2/awards/CONT_AWD_36C26325P0001_3600/",
+            "retrieved_at": "2026-10-21T04:57:29.886267Z",
+            "field": "award.effective_date / amount",
+            "observed_value": {
+              "award_id": "36C26325P0001",
+              "date": "2025-03-03",
+              "amount": 1240000.0
+            },
+            "note": null
+          }
+        ],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "EXECUTIVE_SERIAL_REGISTRATION",
+        "title": "Serial Officer / Agent Registration",
+        "description": "'Jordan A. Sample' is listed on 2 unrelated awardees in LAKEVIEW FALLS, MN (threshold: 2). Anomalous officer-overlap pattern.",
+        "score_contribution": 15,
+        "evidence": [
+          {
+            "source_record_id": "SRC-00006-98c58fe514",
+            "source_url": "https://api.usaspending.gov/api/v2/awards/CONT_AWD_36C26325P0001_3600/",
+            "retrieved_at": "2026-10-21T04:57:29.886267Z",
+            "field": "NORTHFIELD EXAMPLE HOME HEALTH LLC.officers",
+            "observed_value": "Jordan A. Sample",
+            "note": null
+          },
+          {
+            "source_record_id": "SRC-00019-4495301c36",
+            "source_url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLGRANT0003_7530/",
+            "retrieved_at": "2026-10-21T04:57:34.436210Z",
+            "field": "LAKEVIEW EXAMPLE PERSONAL CARE LLC.officers",
+            "observed_value": "SAMPLE, JORDAN",
+            "note": "Name-only match; identity of the individual is not confirmed."
+          }
+        ],
+        "related_entity_keys": [
+          "UEI:EXMPLC000003"
+        ]
+      }
+    ],
+    "raw_total": 90,
+    "max_possible": 160,
+    "score": 90,
+    "formula": "score = min(100, 40*0 + 0*0 + 30*1 + 25*1 + 0*0 + 20*1 + 20*0 + 15*1 + 10*0) = min(100, 90) = 90  [profile: registry]",
+    "scorer_version": "2.0.0"
+  },
+  "related_entities": [
+    {
+      "entity_key": "UEI:EXMPLC000003",
+      "name": "LAKEVIEW EXAMPLE PERSONAL CARE LLC",
+      "uei": "EXMPLC000003",
+      "address": "200 EXAMPLE BOULEVARD, SUITE 5, LAKEVIEW FALLS, MN 55990",
+      "total_awarded": 180000.0,
+      "officers": [
+        "SAMPLE, JORDAN",
+        "RILEY PLACEHOLDER"
+      ],
+      "linked_by": [
+        "EXECUTIVE_SERIAL_REGISTRATION"
+      ]
+    }
+  ],
+  "network": {
+    "component_entities": [
+      "UEI:EXMPLA000001",
+      "UEI:EXMPLC000003"
+    ],
+    "shared_addresses": [],
+    "shared_people": [
+      {
+        "person": "SAMPLE, JORDAN",
+        "normalized": "JORDAN SAMPLE",
+        "entities": [
+          "NORTHFIELD EXAMPLE HOME HEALTH LLC",
+          "LAKEVIEW EXAMPLE PERSONAL CARE LLC"
+        ]
+      }
+    ],
+    "component_total_awarded": 1730000.0,
+    "dot": "graph scrimmy {\n  graph [rankdir=LR, bgcolor=\"transparent\", fontname=\"Helvetica\"];\n  node [fontname=\"Helvetica\", fontsize=10, style=\"rounded,filled\", color=\"#C7C7CC\", fontcolor=\"#1C1C1E\"];\n  edge [color=\"#AEAEB2\"];\n  n0 [shape=note, fillcolor=\"#F2F2F7\", label=\"200 EXAMPLE BOULEVARD, SUITE 5, LAKEVIEW FALLS, MN 55990\"];\n  n1 [shape=note, fillcolor=\"#F2F2F7\", label=\"4410 EXAMPLE LANE, LAKEVIEW FALLS, MN 55990\"];\n  n2 [shape=box, fillcolor=\"#FF3B30\", fontcolor=\"#FFFFFF\", label=\"NORTHFIELD EXAMPLE HOME HEALTH LLC\\n$1,550,000\"];\n  n3 [shape=box, fillcolor=\"#E5F0FF\", fontcolor=\"#1C1C1E\", label=\"LAKEVIEW EXAMPLE PERSONAL CARE LLC\\n$180,000\"];\n  n4 [shape=ellipse, fillcolor=\"#FFF4E5\", label=\"SAMPLE, JORDAN\"];\n  n5 [shape=ellipse, fillcolor=\"#FFF4E5\", label=\"RILEY PLACEHOLDER\"];\n  n1 -- n2;\n  n3 -- n0;\n  n3 -- n4;\n  n3 -- n5;\n  n2 -- n4;\n}"
+  },
+  "track": {
+    "track_a_criminal_referral": true,
+    "track_b_civil_fca": true,
+    "primary": "B: civil FCA / qui tam (via counsel)",
+    "rationale": [
+      "Entity-level indicators (HIGH_DOLLAR_RESIDENTIAL_ZONE, NEWLY_FORMED_WINDFALL, PHANTOM_HEALTHCARE_PROVIDER) concern a single recipient's registration, premises or capacity, which suits a concentrated criminal referral (Track A).",
+      "Network indicators (EXECUTIVE_SERIAL_REGISTRATION) link this recipient to other awardees, the multi-entity pattern counsel evaluates for a civil False Claims Act / qui tam action (Track B).",
+      "Routing is a suggestion for counsel. A qui tam complaint must be filed under seal by an attorney, and DOJ whistleblower programs have their own eligibility rules and reward terms (check justice.gov for the current terms)."
+    ]
+  },
+  "evidence_dir": "dossiers/evidence/SCRIMMY-20261021-855CE0663CA0",
+  "evidence_manifest": [
+    {
+      "path": "api/SRC-00001-d28314550a.json",
+      "sha256": "16a59f72424265f970c2233e2b85b2328550dc1e14e2649e34a45016eb8142a1",
+      "bytes": 3421,
+      "kind": "api_response",
+      "source_record_id": "SRC-00001-d28314550a",
+      "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+      "retrieved_at": "2026-10-21T04:57:28.136021Z"
+    },
+    {
+      "path": "api/SRC-00002-5558f56104.json",
+      "sha256": "919cda165bc3f9ff6b8b6a4c786792186c74df1baed914cd7268a5804692a4da",
+      "bytes": 2312,
+      "kind": "api_response",
+      "source_record_id": "SRC-00002-5558f56104",
+      "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+      "retrieved_at": "2026-10-21T04:57:28.486431Z"
+    },
+    {
+      "path": "api/SRC-00005-090d1f627a.json",
+      "sha256": "366cfe51a55924b97e513ca2cc5b2aee1bfce68f4fa250a3ef2433ee579b833c",
+      "bytes": 645,
+      "kind": "api_response",
+      "source_record_id": "SRC-00005-090d1f627a",
+      "source_url": "https://api.usaspending.gov/api/v2/recipient/00000000-0000-0000-0000-0000aa000001-C/?year=all",
+      "retrieved_at": "2026-10-21T04:57:29.536286Z"
+    },
+    {
+      "path": "api/SRC-00006-98c58fe514.json",
+      "sha256": "a2fc00568aace718b2bf3f0c957f636f52c45ed0d661f755454ef8058ceb8f0a",
+      "bytes": 1158,
+      "kind": "api_response",
+      "source_record_id": "SRC-00006-98c58fe514",
+      "source_url": "https://api.usaspending.gov/api/v2/awards/CONT_AWD_36C26325P0001_3600/",
+      "retrieved_at": "2026-10-21T04:57:29.886267Z"
+    },
+    {
+      "path": "api/SRC-00007-fd7e2ad97d.json",
+      "sha256": "241abe7e9426dc94035120ded11ec763c6880b7cda0a5fccc0b9fcb4afecd8f4",
+      "bytes": 1143,
+      "kind": "api_response",
+      "source_record_id": "SRC-00007-fd7e2ad97d",
+      "source_url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLGRANT0001_7530/",
+      "retrieved_at": "2026-10-21T04:57:30.246113Z"
+    },
+    {
+      "path": "api/SRC-00019-4495301c36.json",
+      "sha256": "efb1737a42c88306d93e4c5a7b0b9c8dc8b812d140a7bf8cc439804a1a10a689",
+      "bytes": 1150,
+      "kind": "api_response",
+      "source_record_id": "SRC-00019-4495301c36",
+      "source_url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLGRANT0003_7530/",
+      "retrieved_at": "2026-10-21T04:57:34.436210Z"
+    },
+    {
+      "path": "api/SRC-00027-6bb37001b5.json",
+      "sha256": "16f3d3cd6aa4eb3ad377c5223eaa36981e6695e279c2bb6d1a51276bc62f54bc",
+      "bytes": 386,
+      "kind": "api_response",
+      "source_record_id": "SRC-00027-6bb37001b5",
+      "source_url": "https://geocoding.geo.census.gov/geocoder/locations/address?street=4410+EXAMPLE+LANE&city=LAKEVIEW+FALLS&state=MN&zip=55990&benchmark=Public_AR_Current&format=json",
+      "retrieved_at": "2026-10-21T04:57:34.941801Z"
+    },
+    {
+      "path": "api/SRC-00028-e278d3d52c.json",
+      "sha256": "94dccf6116455446b449ac24af2be3e80c4ade3a6b54156dcec657d0e6fe98aa",
+      "bytes": 346,
+      "kind": "api_response",
+      "source_record_id": "SRC-00028-e278d3d52c",
+      "source_url": "https://overpass-api.de/api/interpreter",
+      "retrieved_at": "2026-10-21T04:57:35.938760Z"
+    },
+    {
+      "path": "api/SRC-00029-cfcec24422.json",
+      "sha256": "d1d2693d18cee969861c1a7dc0b4023108b4a7567745f4a875ed0f8b0d8973ee",
+      "bytes": 31,
+      "kind": "api_response",
+      "source_record_id": "SRC-00029-cfcec24422",
+      "source_url": "https://npiregistry.cms.hhs.gov/api/?version=2.1&enumeration_type=NPI-2&organization_name=NORTHFIELD+EXAMPLE+HOME+HEALTH%2A&state=MN&limit=200",
+      "retrieved_at": "2026-10-21T04:57:35.939470Z"
+    },
+    {
+      "path": "api/SRC-00030-ea7a787235.json",
+      "sha256": "d1d2693d18cee969861c1a7dc0b4023108b4a7567745f4a875ed0f8b0d8973ee",
+      "bytes": 31,
+      "kind": "api_response",
+      "source_record_id": "SRC-00030-ea7a787235",
+      "source_url": "https://npiregistry.cms.hhs.gov/api/?version=2.1&enumeration_type=NPI-2&organization_name=NORTHFIELD+EXAMPLE%2A&state=MN&limit=200",
+      "retrieved_at": "2026-10-21T04:57:36.290024Z"
+    },
+    {
+      "path": "api/SRC-00031-da2745ce0f.json",
+      "sha256": "d07fd7b7ec1b6ae6f7988a426f73713592a1842e8fdf27762fe498620aebe45c",
+      "bytes": 254,
+      "kind": "dataset_extract",
+      "source_record_id": "SRC-00031-da2745ce0f",
+      "source_url": "https://oig.hhs.gov/exclusions/downloadables/UPDATED.csv",
+      "retrieved_at": "2026-10-21T04:57:36.290327Z"
+    },
+    {
+      "path": "api/SRC-00032-4b96cad94d.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "bytes": 2,
+      "kind": "api_response",
+      "source_record_id": "SRC-00032-4b96cad94d",
+      "source_url": "https://data.example.gov/resource/exmp-l1c3.json?%24where=starts_with%28zip_code%2C+%2755990%27%29+AND+upper%28operation_name%29+like+%27%25NORTHFIELD%25%27&%24limit=50",
+      "retrieved_at": "2026-10-21T04:57:36.290716Z"
+    },
+    {
+      "path": "api/SRC-00033-0013bad5c8.json",
+      "sha256": "9ce383e9052786e75b5726543a8196fa67771236daeae13cd8a3e859aaeb68c9",
+      "bytes": 509,
+      "kind": "api_response",
+      "source_record_id": "SRC-00033-0013bad5c8",
+      "source_url": "https://data.example.gov/resource/exmp-l1c3.json?%24where=starts_with%28zip_code%2C+%2755990%27%29&%24limit=500",
+      "retrieved_at": "2026-10-21T04:57:36.541254Z"
+    },
+    {
+      "path": "ledger.jsonl",
+      "sha256": "bef7648ee7b294a36c3bbd00cca7d0c55fb27ed074ca16ab52a435fff04d7a9a",
+      "bytes": 18414,
+      "kind": "ledger",
+      "source_record_id": null,
+      "source_url": null,
+      "retrieved_at": null
+    }
+  ],
+  "statutory_references": [
+    {
+      "key": "FCA",
+      "citation": "31 U.S.C. §§ 3729-3733",
+      "name": "False Claims Act",
+      "relevance": "Civil liability for knowingly presenting false claims for federal funds. Qui tam actions are filed under seal by counsel (§ 3730(b)). Relator share under § 3730(d): generally 15-25% if the government intervenes, 25-30% if it declines, and up to 10% where the action rests primarily on publicly disclosed information. § 3730(h) protects against retaliation."
+    },
+    {
+      "key": "FCA_PDB",
+      "citation": "31 U.S.C. § 3730(e)(4)",
+      "name": "False Claims Act: public disclosure bar",
+      "relevance": "Qui tam actions based substantially on publicly disclosed information (including federal reports and databases such as USASpending, NPPES and the LEIE) may be dismissed unless the relator is an 'original source' whose independent knowledge materially adds to the public disclosures. Analysis of public data alone may not qualify; consult counsel before filing."
+    },
+    {
+      "key": "WIRE",
+      "citation": "18 U.S.C. § 1343",
+      "name": "Wire fraud",
+      "relevance": "Use of interstate wire communications (including electronic claims, payment and grant-drawdown systems) in a scheme to obtain money by false pretenses."
+    },
+    {
+      "key": "MAIL",
+      "citation": "18 U.S.C. § 1341",
+      "name": "Mail fraud",
+      "relevance": "Use of the mails in a scheme to obtain money by false pretenses."
+    },
+    {
+      "key": "HC_FRAUD",
+      "citation": "18 U.S.C. § 1347",
+      "name": "Health care fraud",
+      "relevance": "Schemes to defraud any health care benefit program, including Medicare and Medicaid."
+    },
+    {
+      "key": "CMPL",
+      "citation": "42 U.S.C. § 1320a-7a",
+      "name": "Civil Monetary Penalties Law",
+      "relevance": "Administrative penalties for false claims to federal health care programs, including claims for items or services furnished, ordered or directed by an excluded individual or entity."
+    },
+    {
+      "key": "FALSE_STMT",
+      "citation": "18 U.S.C. § 1001",
+      "name": "False statements",
+      "relevance": "Materially false statements in matters within federal jurisdiction (e.g. SAM.gov registrations, grant applications, attendance or meal-count certifications)."
+    },
+    {
+      "key": "PROGRAM_THEFT",
+      "citation": "18 U.S.C. § 666",
+      "name": "Theft concerning programs receiving federal funds",
+      "relevance": "Applies to organizations receiving more than $10,000 in federal program benefits in a one-year period."
+    },
+    {
+      "key": "CONSPIRACY",
+      "citation": "18 U.S.C. § 371",
+      "name": "Conspiracy to defraud the United States",
+      "relevance": "Relevant where multiple coordinated entities or individuals are involved."
+    }
+  ],
+  "ground_truthing_checklist": [
+    "Search NPPES manually by name variants, DBA names, prior names and individual practitioners; check whether services were billed under an individual (Type 1) NPI or a parent organization.",
+    "Check the state Medicaid provider enrollment directory, and CMS Provider Enrollment (PECOS) data where public.",
+    "Confirm whether the funded activity actually required NPI enumeration (grant administration and research do not).",
+    "From a public right-of-way only, photograph the premises with date/time/GPS metadata: signage, posted hours, deliveries. Do not trespass, enter, contact occupants, or photograph people.",
+    "Check Street View / county imagery history for a business presence during the award period.",
+    "If the address is a CMRA/PMB or P.O. Box, establish the actual place of performance from award documents, licensing records and NPPES practice locations.",
+    "Check zoning and home-occupation permits with the municipality.",
+    "Confirm the formation date from the state filing (not an aggregator); check for predecessor entities, mergers or name changes.",
+    "Compare the award solicitation/notice date with the formation date and determine whether past performance or experience was certified.",
+    "Confirm the individual's identity across entities (full name, middle name, title, filings); common names produce false matches.",
+    "Determine whether the entities are lawfully affiliated (franchise, management company, disclosed common ownership).",
+    "Re-run every source URL in the Source Ledger and confirm the responses still match the recorded SHA-256 hashes, or note what changed (run `sha256sum -c SHA256SUMS` in the evidence directory first).",
+    "Pull the full award files (USASpending award pages, agency grant notices, Federal Audit Clearinghouse Single Audits) and record the stated place of performance, purpose and sub-recipients.",
+    "Retrieve the Secretary of State filing history (formation date, registered agent, officers, status, annual reports) and save dated copies.",
+    "Retrieve the SAM.gov entity registration (status, entity start date, physical vs. mailing address, POCs) and check SAM.gov exclusions.",
+    "County deed / assessor audit: owner of record, property class code (residential/commercial), homestead exemption, transfer history, and whether the owner is connected to listed officers.",
+    "State licensing: license type (family/home vs. center), licensed capacity, ages served, inspection and violation history at the address of record.",
+    "Document every lawful explanation considered and why it was or was not ruled out."
+  ],
+  "caveats": [
+    "Scores reflect only the documented heuristics applied to public data at the time of retrieval. A high score is a prioritisation signal, not evidence of intent or wrongdoing.",
+    "Cross-entity rules (co-location, serial registration) only consider recipients returned by this scan's filters.",
+    "OpenStreetMap is volunteer-maintained; missing or outdated building/POI tags are common.",
+    "Census Geocoder coordinates are interpolated along street segments and can be offset by tens of meters from the parcel.",
+    "USASpending recipient addresses reflect the most recent registration data and may differ from the address at the time of award.",
+    "Person-name matches use normalized names only and do not confirm that two records refer to the same individual.",
+    "Home health agencies deliver care in clients' homes and often keep small administrative offices, so premises appearance is weak evidence; site visits should target the business office of record.",
+    "Residential classification derives from OSM building/land-use tags, not municipal zoning; verify with the zoning map and assessor class code."
+  ],
+  "narrative_provenance": {
+    "backend": "template",
+    "model": null,
+    "fell_back_to_template": false,
+    "fallback_reason": null,
+    "generated_at": "2026-10-21T04:57:40.695479Z"
+  },
+  "executive_summary": "This briefing summarizes an automated, rule-based screen of public records concerning NORTHFIELD EXAMPLE HOME HEALTH LLC (UEI EXMPLA000001), address of record 4410 EXAMPLE LANE, LAKEVIEW FALLS, MN 55990. Within the scan scope the recipient holds 2 federal awards totaling $1,550,000.00 from Department of Health and Human Services, Department of Veterans Affairs. The deterministic screen assigned an anomaly score of 90/100 from 4 triggered indicators: Healthcare Recipient Without Active Organizational NPI (+30); High-Dollar Award at Residential / Mail-Drop Address (+25); Newly Formed Windfall (+20); Serial Officer / Agent Registration (+15). Suggested routing for counsel's consideration: Track B (see table below).\n\nEach indicator describes an unverified discrepancy between public data sources (for example, a statistically anomalous disbursement-to-presence ratio or unresolved corporate co-location) and does not establish wrongdoing by any person or entity. Lawful explanations, including stale registry data, legitimate home-based or shared-office operations, sponsor or pass-through funding, and undisclosed affiliations, must be ruled out through the field checklist before any referral is considered. The following indicators could not be evaluated for lack of data and contributed no points: Statistically Anomalous Disbursement-to-Capacity Ratio.",
+  "sources": [
+    {
+      "record_id": "SRC-00001-d28314550a",
+      "source": "usaspending",
+      "method": "POST",
+      "url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+      "request_body": {
+        "filters": {
+          "award_type_codes": [
+            "A",
+            "B",
+            "C",
+            "D"
+          ],
+          "time_period": [
+            {
+              "start_date": "2023-10-01",
+              "end_date": "2026-09-30"
+            }
+          ],
+          "recipient_locations": [
+            {
+              "country": "USA",
+              "state": "MN"
+            }
+          ],
+          "award_amounts": [
+            {
+              "lower_bound": 50000
+            }
+          ],
+          "naics_codes": {
+            "require": [
+              "621610"
+            ]
+          }
+        },
+        "fields": [
+          "Award ID",
+          "Recipient Name",
+          "Recipient UEI",
+          "recipient_id",
+          "Awarding Agency",
+          "Awarding Sub Agency",
+          "Description",
+          "generated_internal_id",
+          "Award Amount",
+          "Start Date",
+          "End Date",
+          "Contract Award Type",
+          "NAICS",
+          "PSC"
+        ],
+        "page": 1,
+        "limit": 50,
+        "sort": "Award Amount",
+        "order": "desc",
+        "subawards": false
+      },
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:28.136021Z",
+      "elapsed_ms": 0.7,
+      "attempts": 1,
+      "response_sha256": "16a59f72424265f970c2233e2b85b2328550dc1e14e2649e34a45016eb8142a1",
+      "raw_snippet": {
+        "limit": 50,
+        "results": [
+          {
+            "internal_id": 84801240,
+            "Award ID": "36C26323C0006",
+            "Recipient Name": "EXAMPLE REGIONAL MEDICAL CENTER INC",
+            "Recipient UEI": "EXMPLF000006",
+            "recipient_id": "00000000-0000-0000-0000-0000af000006-C",
+            "Award Amount": 5200000.0,
+            "Start Date": "2023-11-01",
+            "End Date": "2026-09-30",
+            "Awarding Agency": "Department of Veterans Affairs",
+            "Awarding Sub Agency": "Department of Veterans Affairs",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "CONT_AWD_36C26323C0006_3600",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Contract Award Type": "PURCHASE ORDER",
+            "NAICS": {
+              "code": "622110",
+              "description": "SYNTHETIC"
+            },
+            "PSC": {
+              "code": "Q201",
+              "description": "MEDICAL- GENERAL HEALTH CARE"
+            }
+          },
+          {
+            "internal_id": 32996552,
+            "Award ID": "36C26325P0001",
+            "Recipient Name": "NORTHFIELD EXAMPLE HOME HEALTH LLC",
+            "Recipient UEI": "EXMPLA000001",
+            "recipient_id": "00000000-0000-0000-0000-0000aa000001-C",
+            "Award Amount": 1240000.0,
+            "Start Date": "2025-03-03",
+            "End Date": "2026-09-30",
+            "Awarding Agency": "Department of Veterans Affairs",
+            "Awarding Sub Agency": "Department of Veterans Affairs",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "CONT_AWD_36C26325P0001_3600",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Contract Award Type": "PURCHASE ORDER",
+            "NAICS": {
+              "code": "621610",
+              "description": "SYNTHETIC"
+            },
+            "PSC": {
+              "code": "Q201",
+              "description": "MEDICAL- GENERAL HEALTH CARE"
+            }
+          },
+          {
+            "internal_id": 41477030,
+            "Award ID": "36C26324P0002",
+            "Recipient Name": "RIVERBEND EXAMPLE CARE SERVICES INC",
+            "Recipient UEI": "EXMPLB000002",
+            "recipient_id": "00000000-0000-0000-0000-0000ab000002-C",
+            "Award Amount": 420000.0,
+            "Start Date": "2024-06-10",
+            "End Date": "2026-09-30",
+            "Awarding Agency": "Department of Veterans Affairs",
+            "Awarding Sub Agency": "Department of Veterans Affairs",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "CONT_AWD_36C26324P0002_3600",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Contract Award Type": "PURCHASE ORDER",
+            "NAICS": {
+              "code": "621610",
+              "description": "SYNTHETIC"
+            },
+            "PSC": {
+              "code": "Q201",
+              "description": "MEDICAL- GENERAL HEALTH CARE"
+            }
+          },
+          {
+            "internal_id": 52922112,
+            "Award ID": "36C26325P0008",
+            "Recipient Name": "PINECREST EXAMPLE HOME CARE LLC",
+            "Recipient UEI": "EXMPLH000008",
+            "recipient_id": "00000000-0000-0000-0000-0000ah000008-C",
+            "Award Amount": 260000.0,
+            "Start Date": "2025-05-19",
+            "End Date": "2026-09-30",
+            "Awarding Agency": "Department of Veterans Affairs",
+            "Awarding Sub Agency": "Department of Veterans Affairs",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "CONT_AWD_36C26325P0008_3600",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Contract Award Type": "PURCHASE ORDER",
+            "NAICS": {
+              "code": "621610",
+              "description": "SYNTHETIC"
+            },
+            "PSC": {
+              "code": "Q201",
+              "description": "MEDICAL- GENERAL HEALTH CARE"
+            }
+          },
+          {
+            "internal_id": 38897630,
+            "Award ID": "36C26325P0005",
+            "Recipient Name": "CEDAR EXAMPLE HEALTH PARTNERS",
+            "Recipient UEI": "EXMPLE000005",
+            "recipient_id": "00000000-0000-0000-0000-0000ae000005-C",
+            "Award Amount": 90000.0,
+            "Start Date": "2025-01-08",
+            "End Date": "2026-09-30",
+            "Awarding Agency": "Department of Veterans Affairs",
+            "Awarding Sub Agency": "Department of Veterans Affairs",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "CONT_AWD_36C26325P0005_3600",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Contract Award Type": "PURCHASE ORDER",
+            "NAICS": {
+              "code": "621610",
+              "description": "SYNTHETIC"
+            },
+            "PSC": {
+              "code": "Q201",
+              "description": "MEDICAL- GENERAL HEALTH CARE"
+            }
+          }
+        ],
+        "page_metadata": {
+          "page": 1,
+          "hasNext": false
+        },
+        "messages": []
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00002-5558f56104",
+      "source": "usaspending",
+      "method": "POST",
+      "url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+      "request_body": {
+        "filters": {
+          "award_type_codes": [
+            "02",
+            "03",
+            "04",
+            "05"
+          ],
+          "time_period": [
+            {
+              "start_date": "2023-10-01",
+              "end_date": "2026-09-30"
+            }
+          ],
+          "recipient_locations": [
+            {
+              "country": "USA",
+              "state": "MN"
+            }
+          ],
+          "award_amounts": [
+            {
+              "lower_bound": 50000
+            }
+          ],
+          "program_numbers": [
+            "93.778",
+            "93.791",
+            "93.044",
+            "93.045"
+          ]
+        },
+        "fields": [
+          "Award ID",
+          "Recipient Name",
+          "Recipient UEI",
+          "recipient_id",
+          "Awarding Agency",
+          "Awarding Sub Agency",
+          "Description",
+          "generated_internal_id",
+          "Award Amount",
+          "Start Date",
+          "End Date",
+          "Award Type"
+        ],
+        "page": 1,
+        "limit": 50,
+        "sort": "Award Amount",
+        "order": "desc",
+        "subawards": false
+      },
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:28.486431Z",
+      "elapsed_ms": 348.6,
+      "attempts": 1,
+      "response_sha256": "919cda165bc3f9ff6b8b6a4c786792186c74df1baed914cd7268a5804692a4da",
+      "raw_snippet": {
+        "limit": 50,
+        "results": [
+          {
+            "internal_id": 18001785,
+            "Award ID": "EXMPL-CACFP-0007",
+            "Recipient Name": "SUNRISE EXAMPLE LEARNING CENTER LLC",
+            "Recipient UEI": "EXMPLG000007",
+            "recipient_id": "00000000-0000-0000-0000-0000ag000007-C",
+            "Award Amount": 1200000.0,
+            "Start Date": "2024-10-01",
+            "End Date": "2025-09-30",
+            "Awarding Agency": "Department of Agriculture",
+            "Awarding Sub Agency": "Department of Agriculture",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "ASST_NON_EXMPLCACFP0007_12D0",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Award Type": "PROJECT GRANT (B)"
+          },
+          {
+            "internal_id": 38355107,
+            "Award ID": "EXMPL-GRANT-0001",
+            "Recipient Name": "NORTHFIELD EXAMPLE HOME HEALTH LLC",
+            "Recipient UEI": "EXMPLA000001",
+            "recipient_id": "00000000-0000-0000-0000-0000aa000001-C",
+            "Award Amount": 310000.0,
+            "Start Date": "2025-04-21",
+            "End Date": "2026-09-30",
+            "Awarding Agency": "Department of Health and Human Services",
+            "Awarding Sub Agency": "Department of Health and Human Services",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "ASST_NON_EXMPLGRANT0001_7530",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Award Type": "PROJECT GRANT (B)"
+          },
+          {
+            "internal_id": 94003728,
+            "Award ID": "EXMPL-GRANT-0004",
+            "Recipient Name": "SUMMIT EXAMPLE WELLNESS LLC",
+            "Recipient UEI": "EXMPLD000004",
+            "recipient_id": "00000000-0000-0000-0000-0000ad000004-C",
+            "Award Amount": 275000.0,
+            "Start Date": "2025-02-14",
+            "End Date": "2026-09-30",
+            "Awarding Agency": "Department of Health and Human Services",
+            "Awarding Sub Agency": "Department of Health and Human Services",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "ASST_NON_EXMPLGRANT0004_7530",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Award Type": "PROJECT GRANT (B)"
+          },
+          {
+            "internal_id": 40679080,
+            "Award ID": "EXMPL-GRANT-0003",
+            "Recipient Name": "LAKEVIEW EXAMPLE PERSONAL CARE LLC",
+            "Recipient UEI": "EXMPLC000003",
+            "recipient_id": "00000000-0000-0000-0000-0000ac000003-C",
+            "Award Amount": 180000.0,
+            "Start Date": "2024-09-30",
+            "End Date": "2026-09-30",
+            "Awarding Agency": "Department of Health and Human Services",
+            "Awarding Sub Agency": "Department of Health and Human Services",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "ASST_NON_EXMPLGRANT0003_7530",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Award Type": "PROJECT GRANT (B)"
+          }
+        ],
+        "page_metadata": {
+          "page": 1,
+          "hasNext": false
+        },
+        "messages": []
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00005-090d1f627a",
+      "source": "usaspending",
+      "method": "GET",
+      "url": "https://api.usaspending.gov/api/v2/recipient/00000000-0000-0000-0000-0000aa000001-C/?year=all",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:29.536286Z",
+      "elapsed_ms": 349.6,
+      "attempts": 1,
+      "response_sha256": "366cfe51a55924b97e513ca2cc5b2aee1bfce68f4fa250a3ef2433ee579b833c",
+      "raw_snippet": {
+        "name": "NORTHFIELD EXAMPLE HOME HEALTH LLC",
+        "alternate_names": [],
+        "duns": null,
+        "uei": "EXMPLA000001",
+        "recipient_id": "00000000-0000-0000-0000-0000aa000001-C",
+        "recipient_level": "C",
+        "parent_id": null,
+        "parent_name": null,
+        "parent_duns": null,
+        "parent_uei": null,
+        "parents": [],
+        "business_types": [
+          "category_business",
+          "small_business"
+        ],
+        "location": {
+          "address_line1": "4410 EXAMPLE LANE",
+          "address_line2": null,
+          "address_line3": null,
+          "city_name": "LAKEVIEW FALLS",
+          "county_name": "EXAMPLE",
+          "state_code": "MN",
+          "zip": "55990",
+          "zip4": null,
+          "country_code": "USA",
+          "country_name": "UNITED STATES",
+          "congressional_code": "99"
+        },
+        "total_transaction_amount": 1550000.0,
+        "total_transactions": 2
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00006-98c58fe514",
+      "source": "usaspending",
+      "method": "GET",
+      "url": "https://api.usaspending.gov/api/v2/awards/CONT_AWD_36C26325P0001_3600/",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:29.886267Z",
+      "elapsed_ms": 349.4,
+      "attempts": 1,
+      "response_sha256": "a2fc00568aace718b2bf3f0c957f636f52c45ed0d661f755454ef8058ceb8f0a",
+      "raw_snippet": {
+        "id": 1,
+        "generated_unique_award_id": "CONT_AWD_36C26325P0001_3600",
+        "piid": "36C26325P0001",
+        "category": "contract",
+        "total_obligation": 1240000.0,
+        "date_signed": "2025-03-03",
+        "description": "SYNTHETIC DEMO AWARD",
+        "period_of_performance": {
+          "start_date": "2025-03-03",
+          "end_date": "2026-09-30",
+          "last_modified_date": "2025-03-03"
+        },
+        "recipient": {
+          "recipient_hash": "00000000-0000-0000-0000-0000aa000001",
+          "recipient_name": "NORTHFIELD EXAMPLE HOME HEALTH LLC",
+          "recipient_uei": "EXMPLA000001",
+          "parent_recipient_uei": null,
+          "parent_recipient_name": null,
+          "business_categories": [
+            "Small Business",
+            "Limited Liability Corporation"
+          ],
+          "location": {
+            "address_line1": "4410 EXAMPLE LANE",
+            "address_line2": null,
+            "address_line3": null,
+            "city_name": "LAKEVIEW FALLS",
+            "county_name": "EXAMPLE",
+            "state_code": "MN",
+            "zip": "55990",
+            "zip4": null,
+            "country_code": "USA",
+            "country_name": "UNITED STATES",
+            "congressional_code": "99",
+            "zip5": "55990"
+          }
+        },
+        "executive_details": {
+          "officers": [
+            {
+              "name": "Jordan A. Sample",
+              "amount": 150000
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            }
+          ]
+        },
+        "latest_transaction_contract_data": {
+          "naics": "621610",
+          "product_or_service_code": "Q201"
+        }
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00007-fd7e2ad97d",
+      "source": "usaspending",
+      "method": "GET",
+      "url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLGRANT0001_7530/",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:30.246113Z",
+      "elapsed_ms": 359.3,
+      "attempts": 1,
+      "response_sha256": "241abe7e9426dc94035120ded11ec763c6880b7cda0a5fccc0b9fcb4afecd8f4",
+      "raw_snippet": {
+        "id": 1,
+        "generated_unique_award_id": "ASST_NON_EXMPLGRANT0001_7530",
+        "fain": "EXMPL-GRANT-0001",
+        "category": "grant",
+        "total_obligation": 310000.0,
+        "date_signed": "2025-04-21",
+        "description": "SYNTHETIC DEMO AWARD",
+        "period_of_performance": {
+          "start_date": "2025-04-21",
+          "end_date": "2026-09-30",
+          "last_modified_date": "2025-04-21"
+        },
+        "recipient": {
+          "recipient_hash": "00000000-0000-0000-0000-0000aa000001",
+          "recipient_name": "NORTHFIELD EXAMPLE HOME HEALTH LLC",
+          "recipient_uei": "EXMPLA000001",
+          "parent_recipient_uei": null,
+          "parent_recipient_name": null,
+          "business_categories": [
+            "Small Business",
+            "Limited Liability Corporation"
+          ],
+          "location": {
+            "address_line1": "4410 EXAMPLE LANE",
+            "address_line2": null,
+            "address_line3": null,
+            "city_name": "LAKEVIEW FALLS",
+            "county_name": "EXAMPLE",
+            "state_code": "MN",
+            "zip": "55990",
+            "zip4": null,
+            "country_code": "USA",
+            "country_name": "UNITED STATES",
+            "congressional_code": "99",
+            "zip5": "55990"
+          }
+        },
+        "executive_details": {
+          "officers": [
+            {
+              "name": "Jordan A. Sample",
+              "amount": 150000
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            }
+          ]
+        },
+        "cfda_info": [
+          {
+            "cfda_number": "93.791",
+            "cfda_title": "SYNTHETIC PROGRAM"
+          }
+        ]
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00019-4495301c36",
+      "source": "usaspending",
+      "method": "GET",
+      "url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLGRANT0003_7530/",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:34.436210Z",
+      "elapsed_ms": 349.5,
+      "attempts": 1,
+      "response_sha256": "efb1737a42c88306d93e4c5a7b0b9c8dc8b812d140a7bf8cc439804a1a10a689",
+      "raw_snippet": {
+        "id": 1,
+        "generated_unique_award_id": "ASST_NON_EXMPLGRANT0003_7530",
+        "fain": "EXMPL-GRANT-0003",
+        "category": "grant",
+        "total_obligation": 180000.0,
+        "date_signed": "2024-09-30",
+        "description": "SYNTHETIC DEMO AWARD",
+        "period_of_performance": {
+          "start_date": "2024-09-30",
+          "end_date": "2026-09-30",
+          "last_modified_date": "2024-09-30"
+        },
+        "recipient": {
+          "recipient_hash": "00000000-0000-0000-0000-0000ac000003",
+          "recipient_name": "LAKEVIEW EXAMPLE PERSONAL CARE LLC",
+          "recipient_uei": "EXMPLC000003",
+          "parent_recipient_uei": null,
+          "parent_recipient_name": null,
+          "business_categories": [
+            "Small Business",
+            "Limited Liability Corporation"
+          ],
+          "location": {
+            "address_line1": "200 EXAMPLE BOULEVARD",
+            "address_line2": "SUITE 5",
+            "address_line3": null,
+            "city_name": "LAKEVIEW FALLS",
+            "county_name": "EXAMPLE",
+            "state_code": "MN",
+            "zip": "55990",
+            "zip4": null,
+            "country_code": "USA",
+            "country_name": "UNITED STATES",
+            "congressional_code": "99",
+            "zip5": "55990"
+          }
+        },
+        "executive_details": {
+          "officers": [
+            {
+              "name": "SAMPLE, JORDAN",
+              "amount": 150000
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            }
+          ]
+        },
+        "cfda_info": [
+          {
+            "cfda_number": "93.044",
+            "cfda_title": "SYNTHETIC PROGRAM"
+          }
+        ]
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00027-6bb37001b5",
+      "source": "census_geocoder",
+      "method": "GET",
+      "url": "https://geocoding.geo.census.gov/geocoder/locations/address?street=4410+EXAMPLE+LANE&city=LAKEVIEW+FALLS&state=MN&zip=55990&benchmark=Public_AR_Current&format=json",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:34.941801Z",
+      "elapsed_ms": 0.3,
+      "attempts": 1,
+      "response_sha256": "16f3d3cd6aa4eb3ad377c5223eaa36981e6695e279c2bb6d1a51276bc62f54bc",
+      "raw_snippet": {
+        "result": {
+          "input": {
+            "address": {
+              "street": "4410 EXAMPLE LANE"
+            },
+            "benchmark": {
+              "benchmarkName": "Public_AR_Current"
+            }
+          },
+          "addressMatches": [
+            {
+              "tigerLine": {
+                "side": "L",
+                "tigerLineId": "999995040"
+              },
+              "coordinates": {
+                "x": -93.5001,
+                "y": 45.0001
+              },
+              "addressComponents": {
+                "zip": "55990",
+                "streetName": "EXAMPLE",
+                "city": "LAKEVIEW FALLS",
+                "state": "MN"
+              },
+              "matchedAddress": "4410 EXAMPLE LANE, LAKEVIEW FALLS, MN, 55990"
+            }
+          ]
+        }
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00028-e278d3d52c",
+      "source": "osm_overpass",
+      "method": "POST",
+      "url": "https://overpass-api.de/api/interpreter",
+      "request_body": {
+        "data": "[out:json][timeout:25];(way(around:40,45.0001,-93.5001)[building];node(around:40,45.0001,-93.5001)[shop];node(around:40,45.0001,-93.5001)[office];node(around:40,45.0001,-93.5001)[amenity];node(around:40,45.0001,-93.5001)[craft];node(around:40,45.0001,-93.5001)[healthcare];way(around:40,45.0001,-93.5001)[shop];way(around:40,45.0001,-93.5001)[amenity];);out tags center;is_in(45.0001,-93.5001)->.a;(way(pivot.a)[landuse];relation(pivot.a)[landuse];);out tags;"
+      },
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:35.938760Z",
+      "elapsed_ms": 996.8,
+      "attempts": 1,
+      "response_sha256": "94dccf6116455446b449ac24af2be3e80c4ade3a6b54156dcec657d0e6fe98aa",
+      "raw_snippet": {
+        "version": 0.6,
+        "generator": "Overpass API (demo)",
+        "osm3s": {
+          "copyright": "ODbL"
+        },
+        "elements": [
+          {
+            "type": "way",
+            "id": 900001,
+            "center": {
+              "lat": 45.00012,
+              "lon": -93.50011
+            },
+            "tags": {
+              "building": "house"
+            }
+          },
+          {
+            "type": "way",
+            "id": 900002,
+            "center": {
+              "lat": 45.0003,
+              "lon": -93.5001
+            },
+            "tags": {
+              "building": "detached"
+            }
+          },
+          {
+            "type": "way",
+            "id": 900003,
+            "tags": {
+              "landuse": "residential"
+            }
+          }
+        ]
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00029-cfcec24422",
+      "source": "nppes",
+      "method": "GET",
+      "url": "https://npiregistry.cms.hhs.gov/api/?version=2.1&enumeration_type=NPI-2&organization_name=NORTHFIELD+EXAMPLE+HOME+HEALTH%2A&state=MN&limit=200",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:35.939470Z",
+      "elapsed_ms": 0.3,
+      "attempts": 1,
+      "response_sha256": "d1d2693d18cee969861c1a7dc0b4023108b4a7567745f4a875ed0f8b0d8973ee",
+      "raw_snippet": {
+        "result_count": 0,
+        "results": []
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00030-ea7a787235",
+      "source": "nppes",
+      "method": "GET",
+      "url": "https://npiregistry.cms.hhs.gov/api/?version=2.1&enumeration_type=NPI-2&organization_name=NORTHFIELD+EXAMPLE%2A&state=MN&limit=200",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:36.290024Z",
+      "elapsed_ms": 350.4,
+      "attempts": 1,
+      "response_sha256": "d1d2693d18cee969861c1a7dc0b4023108b4a7567745f4a875ed0f8b0d8973ee",
+      "raw_snippet": {
+        "result_count": 0,
+        "results": []
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00031-da2745ce0f",
+      "source": "hhs_oig_leie",
+      "method": "FILE",
+      "url": "https://oig.hhs.gov/exclusions/downloadables/UPDATED.csv",
+      "request_body": null,
+      "status_code": null,
+      "retrieved_at": "2026-10-21T04:57:36.290327Z",
+      "elapsed_ms": null,
+      "attempts": 1,
+      "response_sha256": "96e7b44804e7f0dafa879defc0b8b937cb6fba7e0afee6663001bfb3454a40ed",
+      "raw_snippet": {
+        "dataset": "in-memory",
+        "dataset_sha256": "96e7b44804e7f0dafa879defc0b8b937cb6fba7e0afee6663001bfb3454a40ed",
+        "dataset_rows": 2,
+        "subjects_screened": [
+          "NORTHFIELD EXAMPLE HOME HEALTH LLC",
+          "Jordan A. Sample"
+        ],
+        "matched_rows": []
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00032-4b96cad94d",
+      "source": "socrata",
+      "method": "GET",
+      "url": "https://data.example.gov/resource/exmp-l1c3.json?%24where=starts_with%28zip_code%2C+%2755990%27%29+AND+upper%28operation_name%29+like+%27%25NORTHFIELD%25%27&%24limit=50",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:36.290716Z",
+      "elapsed_ms": 0.2,
+      "attempts": 1,
+      "response_sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "raw_snippet": [],
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00033-0013bad5c8",
+      "source": "socrata",
+      "method": "GET",
+      "url": "https://data.example.gov/resource/exmp-l1c3.json?%24where=starts_with%28zip_code%2C+%2755990%27%29&%24limit=500",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:36.541254Z",
+      "elapsed_ms": 250.4,
+      "attempts": 1,
+      "response_sha256": "9ce383e9052786e75b5726543a8196fa67771236daeae13cd8a3e859aaeb68c9",
+      "raw_snippet": [
+        {
+          "operation_id": "EX-100701",
+          "operation_name": "SUNRISE EXAMPLE LEARNING CENTER",
+          "operation_type": "Licensed Child Care Center",
+          "address_line": "300 EXAMPLE AVE",
+          "city": "LAKEVIEW FALLS",
+          "zip_code": "55990",
+          "total_capacity": "40",
+          "operation_status": "ACTIVE"
+        },
+        {
+          "operation_id": "EX-100702",
+          "operation_name": "LITTLE EXAMPLE FAMILY CHILD CARE",
+          "operation_type": "Licensed Family Child Care Home",
+          "address_line": "12 EXAMPLE CT",
+          "city": "LAKEVIEW FALLS",
+          "zip_code": "55990",
+          "total_capacity": "12",
+          "operation_status": "ACTIVE"
+        }
+      ],
+      "truncated": false,
+      "error": null
+    }
+  ],
+  "disclaimer": "This dossier is an automated investigative LEAD generated from public records for review by a qualified human investigator and counsel. It is not a finding, allegation or accusation of wrongdoing by any person or entity. Every indicator describes an unverified discrepancy in public data that may have a lawful explanation (data-entry error, stale registry records, legitimate home-based operations, shared professional office space, sponsor or pass-through funding, affiliated entities not linked in public data, etc.). No report has been submitted to any agency by this tool. Do not publish, circulate or act on this document without independent verification."
+}

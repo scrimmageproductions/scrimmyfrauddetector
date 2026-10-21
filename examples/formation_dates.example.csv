@@ -1,3 +1,3 @@
-uei,name,formation_date,source_note
-EXMPLA000001,NORTHFIELD EXAMPLE HOME HEALTH LLC,2025-01-06,"SYNTHETIC example: MN Secretary of State business filing retrieved manually by operator on 2026-10-01, file #EXAMPLE"
-,SOME OTHER EXAMPLE LLC,2019-04-22,"SYNTHETIC example: matched by normalized name when UEI is blank"
+uei,name,formation_date,registered_agent,officers,source_note
+EXMPLA000001,NORTHFIELD EXAMPLE HOME HEALTH LLC,2025-01-06,Example Agent Person,Jordan A. Sample;Casey R. Exampleworth,"SYNTHETIC example: Secretary of State business filing retrieved manually by operator on 2026-10-01, file #EXAMPLE"
+,SOME OTHER EXAMPLE LLC,2019-04-22,,,"SYNTHETIC example: matched by normalized name when UEI is blank"

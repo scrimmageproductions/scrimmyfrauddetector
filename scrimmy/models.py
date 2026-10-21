@@ -242,10 +242,128 @@ class LandUseResult(StrictModel):
     source_record_ids: list[str] = Field(default_factory=list)
 
 
+class LEIEMatchStrength(StrEnum):
+    CONFIRMED_IDENTIFIER = "confirmed_identifier"  # exact NPI match
+    STRONG = "strong"                              # name + state + (city/ZIP or middle initial) agreement
+    POSSIBLE = "possible"                          # name + state only; reported, never scored
+
+
+class LEIEMatch(StrictModel):
+    subject: str = Field(description="Who/what in our data matched: entity name or officer name.")
+    subject_role: str = Field(description="'entity' or the officer's role_source.")
+    strength: LEIEMatchStrength
+    similarity: float
+    matched_on: list[str] = Field(default_factory=list, description="Fields that agreed, e.g. ['name', 'state', 'zip'].")
+    leie_row: dict[str, str] = Field(description="The LEIE row exactly as published (all columns).")
+    leie_row_number: int
+    exclusion_type: str | None = None
+    exclusion_date: date | None = None
+
+
+class LEIEScreenResult(StrictModel):
+    performed: bool = False
+    dataset_path: str | None = None
+    dataset_sha256: str | None = None
+    dataset_rows: int = 0
+    subjects_screened: list[str] = Field(default_factory=list)
+    matches: list[LEIEMatch] = Field(default_factory=list)
+    error: str | None = None
+    source_record_ids: list[str] = Field(default_factory=list)
+
+
+class LicenseRecord(StrictModel):
+    source: str = Field(description="e.g. 'socrata:data.texas.gov/bc5r-88dy' or 'operator_csv:licenses.csv'.")
+    license_number: str | None = None
+    facility_name: str
+    license_type: str | None = None
+    status: str | None = None
+    capacity: int | None = None
+    address: Address | None = None
+    name_similarity: float = 0.0
+    address_match: bool = False
+    raw: dict[str, Any] = Field(default_factory=dict)
+    source_record_ids: list[str] = Field(default_factory=list)
+
+
+class LicenseLookupResult(StrictModel):
+    performed: bool = False
+    sources_queried: list[str] = Field(default_factory=list)
+    candidates_examined: int = 0
+    best_match: LicenseRecord | None = None
+    error: str | None = None
+    source_record_ids: list[str] = Field(default_factory=list)
+
+
+class CapacityAnalysis(StrictModel):
+    """Deterministic capacity-to-disbursement arithmetic. Every input is recorded so the result can be recomputed by hand."""
+
+    performed: bool = False
+    benchmark_key: str | None = None
+    benchmark_label: str | None = None
+    unit_rate: float | None = Field(default=None, description="Assumed federal reimbursement per beneficiary-day (USD).")
+    operating_days_per_year: int | None = None
+    benchmark_citation: str | None = None
+    award_total: float | None = None
+    period_start: date | None = None
+    period_end: date | None = None
+    period_years: float | None = None
+    annualized_disbursement: float | None = None
+    estimated_daily_beneficiaries: float | None = None
+    licensed_capacity: int | None = None
+    capacity_ratio: float | None = Field(default=None, description="estimated_daily_beneficiaries / licensed_capacity")
+    ratio_threshold: float | None = None
+    formula: str | None = None
+    reason_not_performed: str | None = None
+
+
+class VisionCategory(StrEnum):
+    SINGLE_FAMILY_RESIDENCE = "SINGLE_FAMILY_RESIDENCE"
+    COMMERCIAL_FACILITY_WITH_SIGNAGE = "COMMERCIAL_FACILITY_WITH_SIGNAGE"
+    COMMERCIAL_MAIL_RECEIVER_OR_PO_BOX = "COMMERCIAL_MAIL_RECEIVER_OR_PO_BOX"
+    VACANT_LOT = "VACANT_LOT"
+    INDUSTRIAL_WAREHOUSE = "INDUSTRIAL_WAREHOUSE"
+    INDETERMINATE = "INDETERMINATE"
+
+
+class VisionAssessment(StrictModel):
+    category: VisionCategory
+    confidence: float = Field(ge=0.0, le=1.0)
+    physical_markers: list[str] = Field(default_factory=list)
+    rationale: str = ""
+
+
+class ImageryRecord(StrictModel):
+    provider: str = Field(description="'mapillary' or 'google_street_view'.")
+    image_id: str | None = Field(default=None, description="Mapillary image id or Google pano_id.")
+    captured_at: date | None = None
+    camera_lat: float | None = None
+    camera_lon: float | None = None
+    heading_deg: float | None = None
+    distance_m: float | None = None
+    request_url: str | None = Field(default=None, description="Image URL with any API key redacted.")
+    image_sha256: str | None = None
+    stored_locally: bool = Field(default=False, description="False for Google imagery (Maps Platform terms restrict storage); hash + pano_id kept instead.")
+    license_note: str | None = None
+    source_record_ids: list[str] = Field(default_factory=list)
+
+
+class VisionVerification(StrictModel):
+    performed: bool = False
+    imagery: ImageryRecord | None = None
+    assessment: VisionAssessment | None = None
+    model: str | None = None
+    raw_model_output: str | None = None
+    error: str | None = None
+
+
 class EnrichmentData(StrictModel):
     npi: NPIMatchResult = Field(default_factory=NPIMatchResult)
     geocode: GeocodeResult = Field(default_factory=GeocodeResult)
     land_use: LandUseResult = Field(default_factory=LandUseResult)
+    leie: LEIEScreenResult = Field(default_factory=LEIEScreenResult)
+    license: LicenseLookupResult = Field(default_factory=LicenseLookupResult)
+    capacity: CapacityAnalysis = Field(default_factory=CapacityAnalysis)
+    vision: VisionVerification = Field(default_factory=VisionVerification)
     notes: list[str] = Field(default_factory=list)
 
 
@@ -318,6 +436,7 @@ class ScanContext(StrictModel):
     end_date: date | None = None
     max_awards: int | None = None
     threshold: int = 50
+    scoring_profile: str = "registry"
     tool_version: str = ""
 
 
@@ -327,6 +446,35 @@ class NarrativeProvenance(StrictModel):
     fell_back_to_template: bool = False
     fallback_reason: str | None = None
     generated_at: datetime = Field(default_factory=utcnow)
+
+
+class NetworkSummary(StrictModel):
+    """The entity's neighbourhood in the officer/entity/address graph."""
+
+    component_entities: list[str] = Field(default_factory=list, description="Entity keys in the same connected component.")
+    shared_addresses: list[dict[str, Any]] = Field(default_factory=list)
+    shared_people: list[dict[str, Any]] = Field(default_factory=list)
+    component_total_awarded: float = 0.0
+    dot: str | None = Field(default=None, description="Graphviz DOT rendering of the component.")
+
+
+class TrackAssessment(StrictModel):
+    """Deterministic routing suggestion for the reviewer. Counsel makes the actual decision."""
+
+    track_a_criminal_referral: bool
+    track_b_civil_fca: bool
+    primary: str
+    rationale: list[str] = Field(default_factory=list)
+
+
+class EvidenceArtifact(StrictModel):
+    path: str = Field(description="Path relative to the lead's evidence directory.")
+    sha256: str
+    bytes: int
+    kind: str = Field(description="'api_response', 'image', 'dataset_extract', 'ledger'.")
+    source_record_id: str | None = None
+    source_url: str | None = None
+    retrieved_at: datetime | None = None
 
 
 class FraudRiskDossier(StrictModel):
@@ -340,6 +488,10 @@ class FraudRiskDossier(StrictModel):
     enrichment: EnrichmentData
     score: ScoreBreakdown
     related_entities: list[dict[str, Any]] = Field(default_factory=list, description="Minimal summaries of co-located / officer-linked entities.")
+    network: NetworkSummary = Field(default_factory=NetworkSummary)
+    track: TrackAssessment | None = None
+    evidence_dir: str | None = None
+    evidence_manifest: list[EvidenceArtifact] = Field(default_factory=list)
     statutory_references: list[dict[str, str]] = Field(default_factory=list)
     ground_truthing_checklist: list[str] = Field(default_factory=list)
     caveats: list[str] = Field(default_factory=list)

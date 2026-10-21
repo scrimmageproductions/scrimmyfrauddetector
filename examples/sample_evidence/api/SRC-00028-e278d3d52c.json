@@ -1,0 +1,1 @@
+{"version":0.6,"generator":"Overpass API (demo)","osm3s":{"copyright":"ODbL"},"elements":[{"type":"way","id":900001,"center":{"lat":45.00012,"lon":-93.50011},"tags":{"building":"house"}},{"type":"way","id":900002,"center":{"lat":45.0003,"lon":-93.5001},"tags":{"building":"detached"}},{"type":"way","id":900003,"tags":{"landuse":"residential"}}]}

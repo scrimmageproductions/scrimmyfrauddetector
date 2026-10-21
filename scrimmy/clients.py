@@ -20,6 +20,7 @@ import hashlib
 import itertools
 import json
 import logging
+import math
 import os
 import random
 import threading
@@ -59,6 +60,7 @@ class EvidenceLedger:
 
     def __init__(self, max_snippet_chars: int = 60_000):
         self._records: dict[str, SourceRecord] = {}
+        self._raw: dict[str, tuple[bytes, str]] = {}
         self._lock = threading.Lock()
         self._seq = itertools.count(1)
         self.max_snippet_chars = max_snippet_chars
@@ -67,10 +69,16 @@ class EvidenceLedger:
         digest = hashlib.sha256(f"{method} {url} {json.dumps(body, sort_keys=True, default=str)}".encode()).hexdigest()[:10]
         return f"SRC-{next(self._seq):05d}-{digest}"
 
-    def add(self, record: SourceRecord) -> SourceRecord:
+    def add(self, record: SourceRecord, raw: bytes | None = None, content_type: str = "application/json") -> SourceRecord:
+        """Store a record and (optionally) the exact, untruncated response body it was hashed from."""
         with self._lock:
             self._records[record.record_id] = record
+            if raw is not None:
+                self._raw[record.record_id] = (raw, content_type)
         return record
+
+    def raw_body(self, record_id: str) -> tuple[bytes, str] | None:
+        return self._raw.get(record_id)
 
     def get(self, record_id: str) -> SourceRecord | None:
         return self._records.get(record_id)
@@ -115,7 +123,7 @@ class HostRateLimiter:
         self._next_allowed: dict[str, float] = {}
         self._lock = threading.Lock()
 
-    def wait(self, host: str) -> None:
+    def wait(self, host: str, sleep=time.sleep) -> None:
         interval = self.min_intervals.get(host, self.default_interval)
         with self._lock:
             now = time.monotonic()
@@ -123,7 +131,7 @@ class HostRateLimiter:
             self._next_allowed[host] = ready_at + interval
         delay = ready_at - now
         if delay > 0:
-            time.sleep(delay)
+            sleep(delay)
 
     def penalize(self, host: str, seconds: float) -> None:
         with self._lock:
@@ -138,6 +146,8 @@ DEFAULT_HOST_INTERVALS = {
     "overpass-api.de": 1.5,
     "overpass.kumi.systems": 1.5,
     "api.sam.gov": 1.0,
+    "graph.mapillary.com": 0.5,
+    "maps.googleapis.com": 0.2,
 }
 
 
@@ -189,6 +199,7 @@ class ResilientHTTP:
         json_body: Any | None = None,
         form: dict[str, str] | None = None,
         redact_params: tuple[str, ...] = (),
+        binary: bool = False,
     ) -> tuple[Any, SourceRecord]:
         """Perform a request and return (parsed_json, SourceRecord). Raises SourceAPIError on final failure."""
         assert self._client is not None
@@ -206,7 +217,7 @@ class ResilientHTTP:
         started = time.monotonic()
         attempt = 0
         for attempt in range(1, self.retry.max_attempts + 1):
-            self.limiter.wait(host)
+            self.limiter.wait(host, self.sleep)
             try:
                 response = self._client.request(method, full_url, json=json_body, data=form)
             except (httpx.TransportError, httpx.TimeoutException) as exc:
@@ -241,8 +252,17 @@ class ResilientHTTP:
             raise SourceAPIError(f"{source}: {record.error} for {recorded_url}", record)
 
         raw = response.content
+        content_type = response.headers.get("Content-Type", "application/octet-stream").split(";")[0].strip()
         record.status_code = response.status_code
         record.response_sha256 = hashlib.sha256(raw).hexdigest()
+        if binary:
+            record.raw_snippet = {"content_type": content_type, "bytes": len(raw)}
+            if response.status_code >= 400:
+                record.error = f"HTTP {response.status_code}"
+                self.ledger.add(record, raw, content_type)
+                raise SourceAPIError(f"{source}: HTTP {response.status_code} for {recorded_url}", record)
+            self.ledger.add(record, raw, content_type)
+            return raw, record
         try:
             payload = response.json()
         except (json.JSONDecodeError, UnicodeDecodeError):
@@ -259,14 +279,19 @@ class ResilientHTTP:
 
         if response.status_code >= 400:
             record.error = f"HTTP {response.status_code}"
-            self.ledger.add(record)
+            self.ledger.add(record, raw, content_type)
             raise SourceAPIError(f"{source}: HTTP {response.status_code} for {recorded_url}: {raw[:300]!r}", record)
         if payload is None:
             record.error = "non-JSON response"
-            self.ledger.add(record)
+            self.ledger.add(record, raw, content_type)
             raise SourceAPIError(f"{source}: non-JSON response for {recorded_url}", record)
-        self.ledger.add(record)
+        self.ledger.add(record, raw, content_type)
         return payload, record
+
+    def request_bytes(self, source: str, method: str, url: str, *, params: dict[str, Any] | None = None,
+                      redact_params: tuple[str, ...] = ()) -> tuple[bytes, SourceRecord]:
+        """Fetch a binary resource (e.g. an image) with the same retry, throttling and ledger guarantees."""
+        return self.request_json(source, method, url, params=params, redact_params=redact_params, binary=True)  # type: ignore[return-value]
 
 
 # --------------------------------------------------------------------------- #
@@ -508,3 +533,85 @@ class SAMEntityClient:
     def get_entity(self, uei: str) -> tuple[dict, SourceRecord]:
         params = {"api_key": self.api_key, "ueiSAM": uei, "includeSections": "entityRegistration,coreData"}
         return self.http.request_json("sam_entity", "GET", self.BASE, params=params, redact_params=("api_key",))
+
+
+# --------------------------------------------------------------------------- #
+# State open data (Socrata SODA API) -- public, no login; app token optional
+# --------------------------------------------------------------------------- #
+
+
+class SocrataClient:
+    """Read-only client for state licensing datasets published on Socrata portals."""
+
+    def __init__(self, http: ResilientHTTP, app_token: str | None = None):
+        self.http = http
+        self.app_token = app_token or os.environ.get("SOCRATA_APP_TOKEN")
+
+    def _params(self, extra: dict[str, Any]) -> dict[str, Any]:
+        return {**extra, **({"$$app_token": self.app_token} if self.app_token else {})}
+
+    def dataset_columns(self, domain: str, dataset_id: str) -> tuple[list[dict[str, Any]], SourceRecord]:
+        payload, record = self.http.request_json(
+            "socrata", "GET", f"https://{domain}/api/views/{dataset_id}.json",
+            params=self._params({}), redact_params=("$$app_token",),
+        )
+        return list(payload.get("columns") or []), record
+
+    def query(self, domain: str, dataset_id: str, where: str, limit: int = 50) -> tuple[list[dict[str, Any]], SourceRecord]:
+        payload, record = self.http.request_json(
+            "socrata", "GET", f"https://{domain}/resource/{dataset_id}.json",
+            params=self._params({"$where": where, "$limit": limit}), redact_params=("$$app_token",),
+        )
+        return (payload if isinstance(payload, list) else []), record
+
+
+# --------------------------------------------------------------------------- #
+# Street-level imagery (optional; operator supplies their own key/token)
+# --------------------------------------------------------------------------- #
+
+
+class GoogleStreetViewClient:
+    """Google Street View Static API. Metadata requests are free; image requests are billed to the operator's key.
+
+    Google Maps Platform terms restrict storing/caching content, so callers keep only the pano_id, capture date,
+    request URL (key redacted) and a SHA-256 of the bytes as fetched, not the image itself.
+    """
+
+    BASE = "https://maps.googleapis.com/maps/api/streetview"
+
+    def __init__(self, http: ResilientHTTP, api_key: str):
+        self.http = http
+        self.api_key = api_key
+
+    def metadata(self, lat: float, lon: float, radius_m: int = 50) -> tuple[dict, SourceRecord]:
+        params = {"location": f"{lat},{lon}", "radius": radius_m, "source": "outdoor", "key": self.api_key}
+        return self.http.request_json("google_street_view", "GET", f"{self.BASE}/metadata", params=params, redact_params=("key",))
+
+    def image(self, pano_id: str, heading: float, size: str = "640x640", fov: int = 80) -> tuple[bytes, SourceRecord]:
+        params = {"pano": pano_id, "heading": round(heading, 1), "fov": fov, "pitch": 5, "size": size, "key": self.api_key}
+        return self.http.request_bytes("google_street_view", "GET", self.BASE, params=params, redact_params=("key",))
+
+
+class MapillaryClient:
+    """Mapillary Graph API v4. Imagery is CC BY-SA 4.0, so it can be archived with attribution."""
+
+    BASE = "https://graph.mapillary.com"
+
+    def __init__(self, http: ResilientHTTP, access_token: str):
+        self.http = http
+        self.access_token = access_token
+
+    def images_near(self, lat: float, lon: float, radius_m: int = 60, limit: int = 25) -> tuple[list[dict], SourceRecord]:
+        dlat = radius_m / 111_320.0
+        dlon = radius_m / (111_320.0 * max(0.1, math.cos(math.radians(lat))))
+        params = {
+            "access_token": self.access_token,
+            "fields": "id,captured_at,computed_geometry,compass_angle,thumb_1024_url,is_pano",
+            "bbox": f"{lon - dlon:.6f},{lat - dlat:.6f},{lon + dlon:.6f},{lat + dlat:.6f}",
+            "limit": limit,
+        }
+        payload, record = self.http.request_json("mapillary", "GET", f"{self.BASE}/images", params=params, redact_params=("access_token",))
+        return list(payload.get("data") or []), record
+
+    def download(self, url: str) -> tuple[bytes, SourceRecord]:
+        return self.http.request_bytes("mapillary", "GET", url)

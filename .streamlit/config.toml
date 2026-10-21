@@ -1,0 +1,31 @@
+# Apple-style palettes. Defining both keeps Streamlit's "use system setting" light/dark switch working.
+[theme]
+font = "sans serif"
+
+[theme.light]
+primaryColor = "#0071E3"
+backgroundColor = "#F5F5F7"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#1D1D1F"
+redColor = "#FF3B30"
+orangeColor = "#FF9500"
+yellowColor = "#FFCC00"
+blueColor = "#0071E3"
+greenColor = "#34C759"
+
+[theme.dark]
+primaryColor = "#0A84FF"
+backgroundColor = "#1C1C1E"
+secondaryBackgroundColor = "#2C2C2E"
+textColor = "#F5F5F7"
+redColor = "#FF453A"
+orangeColor = "#FF9F0A"
+yellowColor = "#FFD60A"
+blueColor = "#0A84FF"
+greenColor = "#30D158"
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"

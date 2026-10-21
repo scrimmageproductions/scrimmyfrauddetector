@@ -1,0 +1,1135 @@
+{
+  "schema_version": "1.0.0",
+  "dossier_id": "SCRIMMY-20261021-FDDE4B4CFE9B",
+  "generated_at": "2026-10-21T04:57:53.679148Z",
+  "scan": {
+    "started_at": "2026-10-21T04:57:41.118632Z",
+    "state": "MN",
+    "zip_codes": [],
+    "vertical": "home_health",
+    "naics_codes": [
+      "621610"
+    ],
+    "psc_codes": [],
+    "program_numbers": [
+      "93.778",
+      "93.791",
+      "93.044",
+      "93.045"
+    ],
+    "award_groups": [
+      "contracts",
+      "grants"
+    ],
+    "min_award": 50000.0,
+    "max_award": null,
+    "start_date": "2023-10-01",
+    "end_date": "2026-09-30",
+    "max_awards": 100,
+    "threshold": 50,
+    "scoring_profile": "capacity",
+    "tool_version": "0.1.0"
+  },
+  "entity": {
+    "entity_key": "UEI:EXMPLG000007",
+    "name": "SUNRISE EXAMPLE LEARNING CENTER LLC",
+    "normalized_name": "SUNRISE EXAMPLE LEARNING CENTER",
+    "alternate_names": [],
+    "uei": "EXMPLG000007",
+    "duns": null,
+    "cage": null,
+    "usaspending_recipient_id": "00000000-0000-0000-0000-0000ag000007-C",
+    "parent_uei": null,
+    "parent_name": null,
+    "address": {
+      "line1": "300 EXAMPLE AVENUE",
+      "line2": null,
+      "city": "LAKEVIEW FALLS",
+      "state": "MN",
+      "zip5": "55990",
+      "zip4": null,
+      "county": "EXAMPLE",
+      "country": "USA",
+      "normalized_street": "300 EXAMPLE AVE",
+      "normalized_unit": null,
+      "is_po_box": false,
+      "is_pmb": false,
+      "one_line": "300 EXAMPLE AVENUE, LAKEVIEW FALLS, MN 55990",
+      "location_key": "300 EXAMPLE AVE|55990",
+      "locality_key": "LAKEVIEW FALLS|MN"
+    },
+    "business_types": [
+      "Limited Liability Corporation",
+      "Small Business",
+      "category_business",
+      "small_business"
+    ],
+    "awards": [
+      {
+        "award_id": "EXMPL-CACFP-0007",
+        "generated_internal_id": "ASST_NON_EXMPLCACFP0007_12D0",
+        "award_group": "grants",
+        "amount": 1200000.0,
+        "start_date": "2024-10-01",
+        "date_signed": "2024-10-01",
+        "end_date": "2025-09-30",
+        "awarding_agency": "Department of Agriculture",
+        "awarding_sub_agency": "Department of Agriculture",
+        "award_type": "PROJECT GRANT (B)",
+        "naics_code": null,
+        "psc_code": null,
+        "program_numbers": [
+          "10.558"
+        ],
+        "description": "SYNTHETIC DEMO AWARD",
+        "source_record_ids": [
+          "SRC-00002-5558f56104",
+          "SRC-00015-759174b49e"
+        ],
+        "effective_date": "2024-10-01"
+      }
+    ],
+    "officers": [],
+    "formation_date": "2024-08-01",
+    "formation_date_source": "operator_csv: SYNTHETIC demo record standing in for a Secretary of State filing",
+    "formation_source_record_ids": [],
+    "is_healthcare": false,
+    "healthcare_basis": null,
+    "source_record_ids": [
+      "SRC-00002-5558f56104",
+      "SRC-00014-7b5daa0f7e"
+    ],
+    "total_awarded": 1200000.0
+  },
+  "enrichment": {
+    "npi": {
+      "performed": false,
+      "query_names": [],
+      "candidates_examined": 0,
+      "matches": [],
+      "best_match": null,
+      "active_npi_found": false,
+      "error": null,
+      "source_record_ids": []
+    },
+    "geocode": {
+      "performed": true,
+      "matched": true,
+      "input_address": "300 EXAMPLE AVENUE, LAKEVIEW FALLS, MN 55990",
+      "matched_address": "300 EXAMPLE AVENUE, LAKEVIEW FALLS, MN, 55990",
+      "latitude": 45.04,
+      "longitude": -93.55,
+      "tiger_line_id": "999997165",
+      "tiger_side": "L",
+      "error": null,
+      "source_record_ids": [
+        "SRC-00050-c81396230a"
+      ]
+    },
+    "land_use": {
+      "performed": true,
+      "classification": "commercial",
+      "signals": [
+        "Nearest mapped structure is tagged building=commercial.",
+        "Commercial POIs within 40m: amenity=kindergarten (Sunrise Example Learning Center) ~3m."
+      ],
+      "nearest_building_tag": "commercial",
+      "landuse_tags": [
+        "commercial"
+      ],
+      "commercial_pois": [
+        "amenity=kindergarten (Sunrise Example Learning Center) ~3m"
+      ],
+      "mail_drop_pois": [],
+      "search_radius_m": 40,
+      "error": null,
+      "source_record_ids": [
+        "SRC-00051-7f73c1f882"
+      ]
+    },
+    "leie": {
+      "performed": true,
+      "dataset_path": null,
+      "dataset_sha256": "96e7b44804e7f0dafa879defc0b8b937cb6fba7e0afee6663001bfb3454a40ed",
+      "dataset_rows": 2,
+      "subjects_screened": [
+        "SUNRISE EXAMPLE LEARNING CENTER LLC"
+      ],
+      "matches": [],
+      "error": null,
+      "source_record_ids": [
+        "SRC-00052-919804ec34"
+      ]
+    },
+    "license": {
+      "performed": true,
+      "sources_queried": [
+        "socrata:data.example.gov/exmp-l1c3"
+      ],
+      "candidates_examined": 1,
+      "best_match": {
+        "source": "socrata:data.example.gov/exmp-l1c3",
+        "license_number": "EX-100701",
+        "facility_name": "SUNRISE EXAMPLE LEARNING CENTER",
+        "license_type": "Licensed Child Care Center",
+        "status": "ACTIVE",
+        "capacity": 40,
+        "address": {
+          "line1": "300 EXAMPLE AVE",
+          "line2": null,
+          "city": "LAKEVIEW FALLS",
+          "state": "MN",
+          "zip5": "55990",
+          "zip4": null,
+          "county": null,
+          "country": "USA",
+          "normalized_street": "300 EXAMPLE AVE",
+          "normalized_unit": null,
+          "is_po_box": false,
+          "is_pmb": false,
+          "one_line": "300 EXAMPLE AVE, LAKEVIEW FALLS, MN 55990",
+          "location_key": "300 EXAMPLE AVE|55990",
+          "locality_key": "LAKEVIEW FALLS|MN"
+        },
+        "name_similarity": 100.0,
+        "address_match": true,
+        "raw": {
+          "field_mapping": {
+            "name": "operation_name",
+            "address": "address_line",
+            "city": "city",
+            "zip": "zip_code",
+            "capacity": "total_capacity",
+            "status": "operation_status",
+            "license_type": "operation_type",
+            "license_number": "operation_id"
+          },
+          "row": {
+            "operation_id": "EX-100701",
+            "operation_name": "SUNRISE EXAMPLE LEARNING CENTER",
+            "operation_type": "Licensed Child Care Center",
+            "address_line": "300 EXAMPLE AVE",
+            "city": "LAKEVIEW FALLS",
+            "zip_code": "55990",
+            "total_capacity": "40",
+            "operation_status": "ACTIVE"
+          }
+        },
+        "source_record_ids": [
+          "SRC-00053-2c5cdb4c7d"
+        ]
+      },
+      "error": null,
+      "source_record_ids": [
+        "SRC-00053-2c5cdb4c7d"
+      ]
+    },
+    "capacity": {
+      "performed": true,
+      "benchmark_key": "cacfp_child_day",
+      "benchmark_label": "CACFP child care center: breakfast + lunch + snack per child-day (approx. free-tier, contiguous U.S.)",
+      "unit_rate": 8.4,
+      "operating_days_per_year": 250,
+      "benchmark_citation": "USDA FNS CACFP reimbursement rates (annual Federal Register notice). Approximate; confirm the current school-year rates.",
+      "award_total": 1200000.0,
+      "period_start": "2024-10-01",
+      "period_end": "2025-09-30",
+      "period_years": 0.997,
+      "annualized_disbursement": 1200000.0,
+      "estimated_daily_beneficiaries": 571.43,
+      "licensed_capacity": 40,
+      "capacity_ratio": 14.286,
+      "ratio_threshold": 2.0,
+      "formula": "annualized = $1,200,000.00 / max(1, 0.997) = $1,200,000.00; est. daily beneficiaries = $1,200,000.00 / ($8.40 x 250) = 571.43; ratio = 571.43 / 40 = 14.286 (threshold > 2.0)",
+      "reason_not_performed": null
+    },
+    "vision": {
+      "performed": false,
+      "imagery": null,
+      "assessment": null,
+      "model": null,
+      "raw_model_output": null,
+      "error": null
+    },
+    "notes": []
+  },
+  "score": {
+    "entity_key": "UEI:EXMPLG000007",
+    "evaluations": [
+      {
+        "rule_id": "LEIE_EXCLUSION_MATCH",
+        "title": "Match to HHS-OIG List of Excluded Individuals/Entities",
+        "weight": 35,
+        "status": "not_triggered",
+        "points_awarded": 0,
+        "rationale": "No LEIE match for 1 subject(s) screened against 2 active exclusions.",
+        "evidence": [],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "MATHEMATICAL_IMPOSSIBILITY",
+        "title": "Statistically Anomalous Disbursement-to-Capacity Ratio",
+        "weight": 40,
+        "status": "triggered",
+        "points_awarded": 40,
+        "rationale": "Federal disbursements of $1,200,000.00 imply ~571.4 beneficiaries per operating day at the benchmark rate, 14.29x the licensed capacity of 40 (threshold > 2.0x). Statistically anomalous disbursement-to-capacity ratio; assumes the award funded beneficiary-days at this licensed site only.",
+        "evidence": [
+          {
+            "source_record_id": "SRC-00053-2c5cdb4c7d",
+            "source_url": "https://data.example.gov/resource/exmp-l1c3.json?%24where=starts_with%28zip_code%2C+%2755990%27%29+AND+upper%28operation_name%29+like+%27%25SUNRISE%25%27&%24limit=50",
+            "retrieved_at": "2026-10-21T04:57:52.126098Z",
+            "field": "license.capacity",
+            "observed_value": {
+              "facility": "SUNRISE EXAMPLE LEARNING CENTER",
+              "license_number": "EX-100701",
+              "capacity": 40,
+              "license_type": "Licensed Child Care Center",
+              "name_similarity": 100.0
+            },
+            "note": null
+          },
+          {
+            "source_record_id": null,
+            "source_url": null,
+            "retrieved_at": null,
+            "field": "capacity.formula",
+            "observed_value": "annualized = $1,200,000.00 / max(1, 0.997) = $1,200,000.00; est. daily beneficiaries = $1,200,000.00 / ($8.40 x 250) = 571.43; ratio = 571.43 / 40 = 14.286 (threshold > 2.0)",
+            "note": "benchmark: CACFP child care center: breakfast + lunch + snack per child-day (approx. free-tier, contiguous U.S.); USDA FNS CACFP reimbursement rates (annual Federal Register notice). Approximate; confirm the current school-year rates."
+          }
+        ],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "PHANTOM_HEALTHCARE_PROVIDER",
+        "title": "Healthcare Recipient Without Active Organizational NPI",
+        "weight": 20,
+        "status": "not_applicable",
+        "points_awarded": 0,
+        "rationale": "Recipient not classified as a healthcare provider.",
+        "evidence": [],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "HIGH_DOLLAR_RESIDENTIAL_ZONE",
+        "title": "High-Dollar Award at Residential / Mail-Drop Address",
+        "weight": 0,
+        "status": "not_triggered",
+        "points_awarded": 0,
+        "rationale": "Premises classified as 'commercial', which is not in the residential/mail-drop set.",
+        "evidence": [
+          {
+            "source_record_id": "SRC-00002-5558f56104",
+            "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+            "retrieved_at": "2026-10-21T04:57:41.469896Z",
+            "field": "award.amount",
+            "observed_value": {
+              "award_id": "EXMPL-CACFP-0007",
+              "amount": 1200000.0
+            },
+            "note": null
+          },
+          {
+            "source_record_id": null,
+            "source_url": null,
+            "retrieved_at": null,
+            "field": "sum(award.amount)",
+            "observed_value": 1200000.0,
+            "note": "derived: 1 award(s) in scope"
+          },
+          {
+            "source_record_id": "SRC-00050-c81396230a",
+            "source_url": "https://geocoding.geo.census.gov/geocoder/locations/address?street=300+EXAMPLE+AVENUE&city=LAKEVIEW+FALLS&state=MN&zip=55990&benchmark=Public_AR_Current&format=json",
+            "retrieved_at": "2026-10-21T04:57:51.877214Z",
+            "field": "census.addressMatches[0]",
+            "observed_value": {
+              "input": "300 EXAMPLE AVENUE, LAKEVIEW FALLS, MN 55990",
+              "matched": "300 EXAMPLE AVENUE, LAKEVIEW FALLS, MN, 55990",
+              "lat": 45.04,
+              "lon": -93.55
+            },
+            "note": null
+          },
+          {
+            "source_record_id": "SRC-00051-7f73c1f882",
+            "source_url": "https://overpass-api.de/api/interpreter",
+            "retrieved_at": "2026-10-21T04:57:51.922890Z",
+            "field": "osm.classification",
+            "observed_value": {
+              "classification": "commercial",
+              "signals": [
+                "Nearest mapped structure is tagged building=commercial.",
+                "Commercial POIs within 40m: amenity=kindergarten (Sunrise Example Learning Center) ~3m."
+              ],
+              "nearest_building": "commercial",
+              "landuse": [
+                "commercial"
+              ]
+            },
+            "note": null
+          }
+        ],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "PHYSICAL_SITE_MISMATCH",
+        "title": "Unverified Operating Capacity at Observed Site",
+        "weight": 25,
+        "status": "not_applicable",
+        "points_awarded": 0,
+        "rationale": "Funded services are not delivered at the recipient's premises (e.g. home health), so site appearance is not probative.",
+        "evidence": [],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "NEWLY_FORMED_WINDFALL",
+        "title": "Newly Formed Windfall",
+        "weight": 15,
+        "status": "triggered",
+        "points_awarded": 15,
+        "rationale": "Award EXMPL-CACFP-0007 ($1,200,000.00) has an effective date 61 days after the recorded formation date 2024-08-01 (threshold: < 120 days). High-variance award-to-operating-history ratio.",
+        "evidence": [
+          {
+            "source_record_id": null,
+            "source_url": null,
+            "retrieved_at": null,
+            "field": "formation_date",
+            "observed_value": "2024-08-01",
+            "note": "source: operator_csv: SYNTHETIC demo record standing in for a Secretary of State filing"
+          },
+          {
+            "source_record_id": "SRC-00002-5558f56104",
+            "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+            "retrieved_at": "2026-10-21T04:57:41.469896Z",
+            "field": "award.effective_date / amount",
+            "observed_value": {
+              "award_id": "EXMPL-CACFP-0007",
+              "date": "2024-10-01",
+              "amount": 1200000.0
+            },
+            "note": null
+          },
+          {
+            "source_record_id": "SRC-00015-759174b49e",
+            "source_url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLCACFP0007_12D0/",
+            "retrieved_at": "2026-10-21T04:57:46.019653Z",
+            "field": "award.effective_date / amount",
+            "observed_value": {
+              "award_id": "EXMPL-CACFP-0007",
+              "date": "2024-10-01",
+              "amount": 1200000.0
+            },
+            "note": null
+          }
+        ],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "CO_LOCATED_SHELL_CLUSTER",
+        "title": "Unresolved Corporate Co-location",
+        "weight": 20,
+        "status": "not_triggered",
+        "points_awarded": 0,
+        "rationale": "1 unrelated awardee group(s) at this exact address (threshold: 3).",
+        "evidence": [],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "EXECUTIVE_SERIAL_REGISTRATION",
+        "title": "Serial Officer / Agent Registration",
+        "weight": 15,
+        "status": "insufficient_data",
+        "points_awarded": 0,
+        "rationale": "No officers, authorized officials or registered agents published for this recipient.",
+        "evidence": [],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "UNRESOLVED_PHYSICAL_DISCREPANCY",
+        "title": "Unresolved Physical Discrepancy",
+        "weight": 0,
+        "status": "not_triggered",
+        "points_awarded": 0,
+        "rationale": "Census matched '300 EXAMPLE AVENUE, LAKEVIEW FALLS, MN, 55990'.",
+        "evidence": [
+          {
+            "source_record_id": "SRC-00050-c81396230a",
+            "source_url": "https://geocoding.geo.census.gov/geocoder/locations/address?street=300+EXAMPLE+AVENUE&city=LAKEVIEW+FALLS&state=MN&zip=55990&benchmark=Public_AR_Current&format=json",
+            "retrieved_at": "2026-10-21T04:57:51.877214Z",
+            "field": "census.addressMatches",
+            "observed_value": {
+              "input": "300 EXAMPLE AVENUE, LAKEVIEW FALLS, MN 55990",
+              "matched": "300 EXAMPLE AVENUE, LAKEVIEW FALLS, MN, 55990"
+            },
+            "note": null
+          }
+        ],
+        "related_entity_keys": []
+      }
+    ],
+    "flags": [
+      {
+        "rule_id": "MATHEMATICAL_IMPOSSIBILITY",
+        "title": "Statistically Anomalous Disbursement-to-Capacity Ratio",
+        "description": "Federal disbursements of $1,200,000.00 imply ~571.4 beneficiaries per operating day at the benchmark rate, 14.29x the licensed capacity of 40 (threshold > 2.0x). Statistically anomalous disbursement-to-capacity ratio; assumes the award funded beneficiary-days at this licensed site only.",
+        "score_contribution": 40,
+        "evidence": [
+          {
+            "source_record_id": "SRC-00053-2c5cdb4c7d",
+            "source_url": "https://data.example.gov/resource/exmp-l1c3.json?%24where=starts_with%28zip_code%2C+%2755990%27%29+AND+upper%28operation_name%29+like+%27%25SUNRISE%25%27&%24limit=50",
+            "retrieved_at": "2026-10-21T04:57:52.126098Z",
+            "field": "license.capacity",
+            "observed_value": {
+              "facility": "SUNRISE EXAMPLE LEARNING CENTER",
+              "license_number": "EX-100701",
+              "capacity": 40,
+              "license_type": "Licensed Child Care Center",
+              "name_similarity": 100.0
+            },
+            "note": null
+          },
+          {
+            "source_record_id": null,
+            "source_url": null,
+            "retrieved_at": null,
+            "field": "capacity.formula",
+            "observed_value": "annualized = $1,200,000.00 / max(1, 0.997) = $1,200,000.00; est. daily beneficiaries = $1,200,000.00 / ($8.40 x 250) = 571.43; ratio = 571.43 / 40 = 14.286 (threshold > 2.0)",
+            "note": "benchmark: CACFP child care center: breakfast + lunch + snack per child-day (approx. free-tier, contiguous U.S.); USDA FNS CACFP reimbursement rates (annual Federal Register notice). Approximate; confirm the current school-year rates."
+          }
+        ],
+        "related_entity_keys": []
+      },
+      {
+        "rule_id": "NEWLY_FORMED_WINDFALL",
+        "title": "Newly Formed Windfall",
+        "description": "Award EXMPL-CACFP-0007 ($1,200,000.00) has an effective date 61 days after the recorded formation date 2024-08-01 (threshold: < 120 days). High-variance award-to-operating-history ratio.",
+        "score_contribution": 15,
+        "evidence": [
+          {
+            "source_record_id": null,
+            "source_url": null,
+            "retrieved_at": null,
+            "field": "formation_date",
+            "observed_value": "2024-08-01",
+            "note": "source: operator_csv: SYNTHETIC demo record standing in for a Secretary of State filing"
+          },
+          {
+            "source_record_id": "SRC-00002-5558f56104",
+            "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+            "retrieved_at": "2026-10-21T04:57:41.469896Z",
+            "field": "award.effective_date / amount",
+            "observed_value": {
+              "award_id": "EXMPL-CACFP-0007",
+              "date": "2024-10-01",
+              "amount": 1200000.0
+            },
+            "note": null
+          },
+          {
+            "source_record_id": "SRC-00015-759174b49e",
+            "source_url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLCACFP0007_12D0/",
+            "retrieved_at": "2026-10-21T04:57:46.019653Z",
+            "field": "award.effective_date / amount",
+            "observed_value": {
+              "award_id": "EXMPL-CACFP-0007",
+              "date": "2024-10-01",
+              "amount": 1200000.0
+            },
+            "note": null
+          }
+        ],
+        "related_entity_keys": []
+      }
+    ],
+    "raw_total": 55,
+    "max_possible": 170,
+    "score": 55,
+    "formula": "score = min(100, 35*0 + 40*1 + 20*0 + 0*0 + 25*0 + 15*1 + 20*0 + 15*0 + 0*0) = min(100, 55) = 55  [profile: capacity]",
+    "scorer_version": "2.0.0"
+  },
+  "related_entities": [],
+  "network": {
+    "component_entities": [
+      "UEI:EXMPLG000007"
+    ],
+    "shared_addresses": [],
+    "shared_people": [],
+    "component_total_awarded": 1200000.0,
+    "dot": "graph scrimmy {\n  graph [rankdir=LR, bgcolor=\"transparent\", fontname=\"Helvetica\"];\n  node [fontname=\"Helvetica\", fontsize=10, style=\"rounded,filled\", color=\"#C7C7CC\", fontcolor=\"#1C1C1E\"];\n  edge [color=\"#AEAEB2\"];\n  n0 [shape=note, fillcolor=\"#F2F2F7\", label=\"300 EXAMPLE AVENUE, LAKEVIEW FALLS, MN 55990\"];\n  n1 [shape=box, fillcolor=\"#FF3B30\", fontcolor=\"#FFFFFF\", label=\"SUNRISE EXAMPLE LEARNING CENTER LLC\\n$1,200,000\"];\n  n0 -- n1;\n}"
+  },
+  "track": {
+    "track_a_criminal_referral": true,
+    "track_b_civil_fca": false,
+    "primary": "A: criminal referral",
+    "rationale": [
+      "Entity-level indicators (MATHEMATICAL_IMPOSSIBILITY, NEWLY_FORMED_WINDFALL) concern a single recipient's registration, premises or capacity, which suits a concentrated criminal referral (Track A).",
+      "Routing is a suggestion for counsel. A qui tam complaint must be filed under seal by an attorney, and DOJ whistleblower programs have their own eligibility rules and reward terms (check justice.gov for the current terms)."
+    ]
+  },
+  "evidence_dir": "dossiers/evidence/SCRIMMY-20261021-FDDE4B4CFE9B",
+  "evidence_manifest": [
+    {
+      "path": "api/SRC-00002-5558f56104.json",
+      "sha256": "919cda165bc3f9ff6b8b6a4c786792186c74df1baed914cd7268a5804692a4da",
+      "bytes": 2312,
+      "kind": "api_response",
+      "source_record_id": "SRC-00002-5558f56104",
+      "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+      "retrieved_at": "2026-10-21T04:57:41.469896Z"
+    },
+    {
+      "path": "api/SRC-00014-7b5daa0f7e.json",
+      "sha256": "84c0c0e222055ca0aa852be10a3529bd72e79a6c9994d140c5c2fe9f5e8e42f7",
+      "bytes": 647,
+      "kind": "api_response",
+      "source_record_id": "SRC-00014-7b5daa0f7e",
+      "source_url": "https://api.usaspending.gov/api/v2/recipient/00000000-0000-0000-0000-0000ag000007-C/?year=all",
+      "retrieved_at": "2026-10-21T04:57:45.669918Z"
+    },
+    {
+      "path": "api/SRC-00015-759174b49e.json",
+      "sha256": "a0fbbc1df67e4cbb0166460d731d93dcf778f511fba8a7ee665be60c5e1e2a62",
+      "bytes": 1130,
+      "kind": "api_response",
+      "source_record_id": "SRC-00015-759174b49e",
+      "source_url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLCACFP0007_12D0/",
+      "retrieved_at": "2026-10-21T04:57:46.019653Z"
+    },
+    {
+      "path": "api/SRC-00050-c81396230a.json",
+      "sha256": "2a6290521800c92af4616f123467659c785438f3b8d4616a499163124cf05fa8",
+      "bytes": 384,
+      "kind": "api_response",
+      "source_record_id": "SRC-00050-c81396230a",
+      "source_url": "https://geocoding.geo.census.gov/geocoder/locations/address?street=300+EXAMPLE+AVENUE&city=LAKEVIEW+FALLS&state=MN&zip=55990&benchmark=Public_AR_Current&format=json",
+      "retrieved_at": "2026-10-21T04:57:51.877214Z"
+    },
+    {
+      "path": "api/SRC-00051-7f73c1f882.json",
+      "sha256": "f6285462bfcd3de7d35e7d5527c5bff7e19494e34a8ecc2db96001265994db07",
+      "bytes": 386,
+      "kind": "api_response",
+      "source_record_id": "SRC-00051-7f73c1f882",
+      "source_url": "https://overpass-api.de/api/interpreter",
+      "retrieved_at": "2026-10-21T04:57:51.922890Z"
+    },
+    {
+      "path": "api/SRC-00052-919804ec34.json",
+      "sha256": "26b5da1fac6e6d3120b4aa5b8074bdc13648e65a67e7ca622e64167d3975ef2c",
+      "bytes": 231,
+      "kind": "dataset_extract",
+      "source_record_id": "SRC-00052-919804ec34",
+      "source_url": "https://oig.hhs.gov/exclusions/downloadables/UPDATED.csv",
+      "retrieved_at": "2026-10-21T04:57:51.923245Z"
+    },
+    {
+      "path": "api/SRC-00053-2c5cdb4c7d.json",
+      "sha256": "e133538425483b3421b2109f03a988aa796a66f193b6c8dee4a50b26dc339c55",
+      "bytes": 253,
+      "kind": "api_response",
+      "source_record_id": "SRC-00053-2c5cdb4c7d",
+      "source_url": "https://data.example.gov/resource/exmp-l1c3.json?%24where=starts_with%28zip_code%2C+%2755990%27%29+AND+upper%28operation_name%29+like+%27%25SUNRISE%25%27&%24limit=50",
+      "retrieved_at": "2026-10-21T04:57:52.126098Z"
+    },
+    {
+      "path": "ledger.jsonl",
+      "sha256": "9dd62fea2042109a90001372a5540b6a9794e09d8257a016f01c2c30b05dd2c4",
+      "bytes": 9248,
+      "kind": "ledger",
+      "source_record_id": null,
+      "source_url": null,
+      "retrieved_at": null
+    }
+  ],
+  "statutory_references": [
+    {
+      "key": "FCA",
+      "citation": "31 U.S.C. §§ 3729-3733",
+      "name": "False Claims Act",
+      "relevance": "Civil liability for knowingly presenting false claims for federal funds. Qui tam actions are filed under seal by counsel (§ 3730(b)). Relator share under § 3730(d): generally 15-25% if the government intervenes, 25-30% if it declines, and up to 10% where the action rests primarily on publicly disclosed information. § 3730(h) protects against retaliation."
+    },
+    {
+      "key": "FCA_PDB",
+      "citation": "31 U.S.C. § 3730(e)(4)",
+      "name": "False Claims Act: public disclosure bar",
+      "relevance": "Qui tam actions based substantially on publicly disclosed information (including federal reports and databases such as USASpending, NPPES and the LEIE) may be dismissed unless the relator is an 'original source' whose independent knowledge materially adds to the public disclosures. Analysis of public data alone may not qualify; consult counsel before filing."
+    },
+    {
+      "key": "WIRE",
+      "citation": "18 U.S.C. § 1343",
+      "name": "Wire fraud",
+      "relevance": "Use of interstate wire communications (including electronic claims, payment and grant-drawdown systems) in a scheme to obtain money by false pretenses."
+    },
+    {
+      "key": "MAIL",
+      "citation": "18 U.S.C. § 1341",
+      "name": "Mail fraud",
+      "relevance": "Use of the mails in a scheme to obtain money by false pretenses."
+    },
+    {
+      "key": "FALSE_STMT",
+      "citation": "18 U.S.C. § 1001",
+      "name": "False statements",
+      "relevance": "Materially false statements in matters within federal jurisdiction (e.g. SAM.gov registrations, grant applications, attendance or meal-count certifications)."
+    },
+    {
+      "key": "PROGRAM_THEFT",
+      "citation": "18 U.S.C. § 666",
+      "name": "Theft concerning programs receiving federal funds",
+      "relevance": "Applies to organizations receiving more than $10,000 in federal program benefits in a one-year period."
+    }
+  ],
+  "ground_truthing_checklist": [
+    "Confirm the licensed capacity, ages served and operating schedule directly from the state licensing record, and check whether the recipient operates other licensed sites that the award also funds.",
+    "Replace the benchmark unit rate with the program's actual rate for the award period (CACFP: annual USDA notice; hospice: CMS final rule; CCDF: state payment rates) and recompute.",
+    "Obtain claimed meal/attendance/patient-day counts through official records requests (FOIA; state public-records law) and compare them to capacity x operating days.",
+    "Confirm the formation date from the state filing (not an aggregator); check for predecessor entities, mergers or name changes.",
+    "Compare the award solicitation/notice date with the formation date and determine whether past performance or experience was certified.",
+    "Re-run every source URL in the Source Ledger and confirm the responses still match the recorded SHA-256 hashes, or note what changed (run `sha256sum -c SHA256SUMS` in the evidence directory first).",
+    "Pull the full award files (USASpending award pages, agency grant notices, Federal Audit Clearinghouse Single Audits) and record the stated place of performance, purpose and sub-recipients.",
+    "Retrieve the Secretary of State filing history (formation date, registered agent, officers, status, annual reports) and save dated copies.",
+    "Retrieve the SAM.gov entity registration (status, entity start date, physical vs. mailing address, POCs) and check SAM.gov exclusions.",
+    "County deed / assessor audit: owner of record, property class code (residential/commercial), homestead exemption, transfer history, and whether the owner is connected to listed officers.",
+    "State licensing: license type (family/home vs. center), licensed capacity, ages served, inspection and violation history at the address of record.",
+    "Document every lawful explanation considered and why it was or was not ruled out."
+  ],
+  "caveats": [
+    "Scores reflect only the documented heuristics applied to public data at the time of retrieval. A high score is a prioritisation signal, not evidence of intent or wrongdoing.",
+    "Cross-entity rules (co-location, serial registration) only consider recipients returned by this scan's filters.",
+    "OpenStreetMap is volunteer-maintained; missing or outdated building/POI tags are common.",
+    "Census Geocoder coordinates are interpolated along street segments and can be offset by tens of meters from the parcel.",
+    "USASpending recipient addresses reflect the most recent registration data and may differ from the address at the time of award.",
+    "Person-name matches use normalized names only and do not confirm that two records refer to the same individual.",
+    "Home health agencies deliver care in clients' homes and often keep small administrative offices, so premises appearance is weak evidence; site visits should target the business office of record.",
+    "Capacity arithmetic assumes the entire award paid for beneficiary-days at the matched licensed site at the benchmark rate. Sponsors, multi-site operators, administrative/capital funding and unspent obligations all break that assumption."
+  ],
+  "narrative_provenance": {
+    "backend": "template",
+    "model": null,
+    "fell_back_to_template": false,
+    "fallback_reason": null,
+    "generated_at": "2026-10-21T04:57:53.679609Z"
+  },
+  "executive_summary": "This briefing summarizes an automated, rule-based screen of public records concerning SUNRISE EXAMPLE LEARNING CENTER LLC (UEI EXMPLG000007), address of record 300 EXAMPLE AVENUE, LAKEVIEW FALLS, MN 55990. Within the scan scope the recipient holds 1 federal award totaling $1,200,000.00 from Department of Agriculture. The deterministic screen assigned an anomaly score of 55/100 from 2 triggered indicators: Statistically Anomalous Disbursement-to-Capacity Ratio (+40); Newly Formed Windfall (+15). Benchmark arithmetic implies daily beneficiary volume of 14.286x the licensed capacity of 40. Suggested routing for counsel's consideration: Track A (see table below).\n\nEach indicator describes an unverified discrepancy between public data sources (for example, a statistically anomalous disbursement-to-presence ratio or unresolved corporate co-location) and does not establish wrongdoing by any person or entity. Lawful explanations, including stale registry data, legitimate home-based or shared-office operations, sponsor or pass-through funding, and undisclosed affiliations, must be ruled out through the field checklist before any referral is considered. The following indicators could not be evaluated for lack of data and contributed no points: Serial Officer / Agent Registration.",
+  "sources": [
+    {
+      "record_id": "SRC-00002-5558f56104",
+      "source": "usaspending",
+      "method": "POST",
+      "url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+      "request_body": {
+        "filters": {
+          "award_type_codes": [
+            "02",
+            "03",
+            "04",
+            "05"
+          ],
+          "time_period": [
+            {
+              "start_date": "2023-10-01",
+              "end_date": "2026-09-30"
+            }
+          ],
+          "recipient_locations": [
+            {
+              "country": "USA",
+              "state": "MN"
+            }
+          ],
+          "award_amounts": [
+            {
+              "lower_bound": 50000
+            }
+          ],
+          "program_numbers": [
+            "93.778",
+            "93.791",
+            "93.044",
+            "93.045"
+          ]
+        },
+        "fields": [
+          "Award ID",
+          "Recipient Name",
+          "Recipient UEI",
+          "recipient_id",
+          "Awarding Agency",
+          "Awarding Sub Agency",
+          "Description",
+          "generated_internal_id",
+          "Award Amount",
+          "Start Date",
+          "End Date",
+          "Award Type"
+        ],
+        "page": 1,
+        "limit": 50,
+        "sort": "Award Amount",
+        "order": "desc",
+        "subawards": false
+      },
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:41.469896Z",
+      "elapsed_ms": 348.0,
+      "attempts": 1,
+      "response_sha256": "919cda165bc3f9ff6b8b6a4c786792186c74df1baed914cd7268a5804692a4da",
+      "raw_snippet": {
+        "limit": 50,
+        "results": [
+          {
+            "internal_id": 18001785,
+            "Award ID": "EXMPL-CACFP-0007",
+            "Recipient Name": "SUNRISE EXAMPLE LEARNING CENTER LLC",
+            "Recipient UEI": "EXMPLG000007",
+            "recipient_id": "00000000-0000-0000-0000-0000ag000007-C",
+            "Award Amount": 1200000.0,
+            "Start Date": "2024-10-01",
+            "End Date": "2025-09-30",
+            "Awarding Agency": "Department of Agriculture",
+            "Awarding Sub Agency": "Department of Agriculture",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "ASST_NON_EXMPLCACFP0007_12D0",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Award Type": "PROJECT GRANT (B)"
+          },
+          {
+            "internal_id": 38355107,
+            "Award ID": "EXMPL-GRANT-0001",
+            "Recipient Name": "NORTHFIELD EXAMPLE HOME HEALTH LLC",
+            "Recipient UEI": "EXMPLA000001",
+            "recipient_id": "00000000-0000-0000-0000-0000aa000001-C",
+            "Award Amount": 310000.0,
+            "Start Date": "2025-04-21",
+            "End Date": "2026-09-30",
+            "Awarding Agency": "Department of Health and Human Services",
+            "Awarding Sub Agency": "Department of Health and Human Services",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "ASST_NON_EXMPLGRANT0001_7530",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Award Type": "PROJECT GRANT (B)"
+          },
+          {
+            "internal_id": 94003728,
+            "Award ID": "EXMPL-GRANT-0004",
+            "Recipient Name": "SUMMIT EXAMPLE WELLNESS LLC",
+            "Recipient UEI": "EXMPLD000004",
+            "recipient_id": "00000000-0000-0000-0000-0000ad000004-C",
+            "Award Amount": 275000.0,
+            "Start Date": "2025-02-14",
+            "End Date": "2026-09-30",
+            "Awarding Agency": "Department of Health and Human Services",
+            "Awarding Sub Agency": "Department of Health and Human Services",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "ASST_NON_EXMPLGRANT0004_7530",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Award Type": "PROJECT GRANT (B)"
+          },
+          {
+            "internal_id": 40679080,
+            "Award ID": "EXMPL-GRANT-0003",
+            "Recipient Name": "LAKEVIEW EXAMPLE PERSONAL CARE LLC",
+            "Recipient UEI": "EXMPLC000003",
+            "recipient_id": "00000000-0000-0000-0000-0000ac000003-C",
+            "Award Amount": 180000.0,
+            "Start Date": "2024-09-30",
+            "End Date": "2026-09-30",
+            "Awarding Agency": "Department of Health and Human Services",
+            "Awarding Sub Agency": "Department of Health and Human Services",
+            "Description": "SYNTHETIC DEMO AWARD",
+            "generated_internal_id": "ASST_NON_EXMPLGRANT0003_7530",
+            "awarding_agency_id": 1,
+            "agency_slug": "example",
+            "Award Type": "PROJECT GRANT (B)"
+          }
+        ],
+        "page_metadata": {
+          "page": 1,
+          "hasNext": false
+        },
+        "messages": []
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00014-7b5daa0f7e",
+      "source": "usaspending",
+      "method": "GET",
+      "url": "https://api.usaspending.gov/api/v2/recipient/00000000-0000-0000-0000-0000ag000007-C/?year=all",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:45.669918Z",
+      "elapsed_ms": 348.7,
+      "attempts": 1,
+      "response_sha256": "84c0c0e222055ca0aa852be10a3529bd72e79a6c9994d140c5c2fe9f5e8e42f7",
+      "raw_snippet": {
+        "name": "SUNRISE EXAMPLE LEARNING CENTER LLC",
+        "alternate_names": [],
+        "duns": null,
+        "uei": "EXMPLG000007",
+        "recipient_id": "00000000-0000-0000-0000-0000ag000007-C",
+        "recipient_level": "C",
+        "parent_id": null,
+        "parent_name": null,
+        "parent_duns": null,
+        "parent_uei": null,
+        "parents": [],
+        "business_types": [
+          "category_business",
+          "small_business"
+        ],
+        "location": {
+          "address_line1": "300 EXAMPLE AVENUE",
+          "address_line2": null,
+          "address_line3": null,
+          "city_name": "LAKEVIEW FALLS",
+          "county_name": "EXAMPLE",
+          "state_code": "MN",
+          "zip": "55990",
+          "zip4": null,
+          "country_code": "USA",
+          "country_name": "UNITED STATES",
+          "congressional_code": "99"
+        },
+        "total_transaction_amount": 1200000.0,
+        "total_transactions": 1
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00015-759174b49e",
+      "source": "usaspending",
+      "method": "GET",
+      "url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLCACFP0007_12D0/",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:46.019653Z",
+      "elapsed_ms": 349.1,
+      "attempts": 1,
+      "response_sha256": "a0fbbc1df67e4cbb0166460d731d93dcf778f511fba8a7ee665be60c5e1e2a62",
+      "raw_snippet": {
+        "id": 1,
+        "generated_unique_award_id": "ASST_NON_EXMPLCACFP0007_12D0",
+        "fain": "EXMPL-CACFP-0007",
+        "category": "grant",
+        "total_obligation": 1200000.0,
+        "date_signed": "2024-10-01",
+        "description": "SYNTHETIC DEMO AWARD",
+        "period_of_performance": {
+          "start_date": "2024-10-01",
+          "end_date": "2025-09-30",
+          "last_modified_date": "2024-10-01"
+        },
+        "recipient": {
+          "recipient_hash": "00000000-0000-0000-0000-0000ag000007",
+          "recipient_name": "SUNRISE EXAMPLE LEARNING CENTER LLC",
+          "recipient_uei": "EXMPLG000007",
+          "parent_recipient_uei": null,
+          "parent_recipient_name": null,
+          "business_categories": [
+            "Small Business",
+            "Limited Liability Corporation"
+          ],
+          "location": {
+            "address_line1": "300 EXAMPLE AVENUE",
+            "address_line2": null,
+            "address_line3": null,
+            "city_name": "LAKEVIEW FALLS",
+            "county_name": "EXAMPLE",
+            "state_code": "MN",
+            "zip": "55990",
+            "zip4": null,
+            "country_code": "USA",
+            "country_name": "UNITED STATES",
+            "congressional_code": "99",
+            "zip5": "55990"
+          }
+        },
+        "executive_details": {
+          "officers": [
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            },
+            {
+              "name": null,
+              "amount": null
+            }
+          ]
+        },
+        "cfda_info": [
+          {
+            "cfda_number": "10.558",
+            "cfda_title": "SYNTHETIC PROGRAM"
+          }
+        ]
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00050-c81396230a",
+      "source": "census_geocoder",
+      "method": "GET",
+      "url": "https://geocoding.geo.census.gov/geocoder/locations/address?street=300+EXAMPLE+AVENUE&city=LAKEVIEW+FALLS&state=MN&zip=55990&benchmark=Public_AR_Current&format=json",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:51.877214Z",
+      "elapsed_ms": 0.4,
+      "attempts": 1,
+      "response_sha256": "2a6290521800c92af4616f123467659c785438f3b8d4616a499163124cf05fa8",
+      "raw_snippet": {
+        "result": {
+          "input": {
+            "address": {
+              "street": "300 EXAMPLE AVENUE"
+            },
+            "benchmark": {
+              "benchmarkName": "Public_AR_Current"
+            }
+          },
+          "addressMatches": [
+            {
+              "tigerLine": {
+                "side": "L",
+                "tigerLineId": "999997165"
+              },
+              "coordinates": {
+                "x": -93.55,
+                "y": 45.04
+              },
+              "addressComponents": {
+                "zip": "55990",
+                "streetName": "EXAMPLE",
+                "city": "LAKEVIEW FALLS",
+                "state": "MN"
+              },
+              "matchedAddress": "300 EXAMPLE AVENUE, LAKEVIEW FALLS, MN, 55990"
+            }
+          ]
+        }
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00051-7f73c1f882",
+      "source": "osm_overpass",
+      "method": "POST",
+      "url": "https://overpass-api.de/api/interpreter",
+      "request_body": {
+        "data": "[out:json][timeout:25];(way(around:40,45.04,-93.55)[building];node(around:40,45.04,-93.55)[shop];node(around:40,45.04,-93.55)[office];node(around:40,45.04,-93.55)[amenity];node(around:40,45.04,-93.55)[craft];node(around:40,45.04,-93.55)[healthcare];way(around:40,45.04,-93.55)[shop];way(around:40,45.04,-93.55)[amenity];);out tags center;is_in(45.04,-93.55)->.a;(way(pivot.a)[landuse];relation(pivot.a)[landuse];);out tags;"
+      },
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:51.922890Z",
+      "elapsed_ms": 45.5,
+      "attempts": 1,
+      "response_sha256": "f6285462bfcd3de7d35e7d5527c5bff7e19494e34a8ecc2db96001265994db07",
+      "raw_snippet": {
+        "version": 0.6,
+        "generator": "Overpass API (demo)",
+        "osm3s": {
+          "copyright": "ODbL"
+        },
+        "elements": [
+          {
+            "type": "way",
+            "id": 900040,
+            "center": {
+              "lat": 45.04001,
+              "lon": -93.55001
+            },
+            "tags": {
+              "building": "commercial"
+            }
+          },
+          {
+            "type": "node",
+            "id": 900041,
+            "lat": 45.04002,
+            "lon": -93.55002,
+            "tags": {
+              "amenity": "kindergarten",
+              "name": "Sunrise Example Learning Center"
+            }
+          },
+          {
+            "type": "way",
+            "id": 900042,
+            "tags": {
+              "landuse": "commercial"
+            }
+          }
+        ]
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00052-919804ec34",
+      "source": "hhs_oig_leie",
+      "method": "FILE",
+      "url": "https://oig.hhs.gov/exclusions/downloadables/UPDATED.csv",
+      "request_body": null,
+      "status_code": null,
+      "retrieved_at": "2026-10-21T04:57:51.923245Z",
+      "elapsed_ms": null,
+      "attempts": 1,
+      "response_sha256": "96e7b44804e7f0dafa879defc0b8b937cb6fba7e0afee6663001bfb3454a40ed",
+      "raw_snippet": {
+        "dataset": "in-memory",
+        "dataset_sha256": "96e7b44804e7f0dafa879defc0b8b937cb6fba7e0afee6663001bfb3454a40ed",
+        "dataset_rows": 2,
+        "subjects_screened": [
+          "SUNRISE EXAMPLE LEARNING CENTER LLC"
+        ],
+        "matched_rows": []
+      },
+      "truncated": false,
+      "error": null
+    },
+    {
+      "record_id": "SRC-00053-2c5cdb4c7d",
+      "source": "socrata",
+      "method": "GET",
+      "url": "https://data.example.gov/resource/exmp-l1c3.json?%24where=starts_with%28zip_code%2C+%2755990%27%29+AND+upper%28operation_name%29+like+%27%25SUNRISE%25%27&%24limit=50",
+      "request_body": null,
+      "status_code": 200,
+      "retrieved_at": "2026-10-21T04:57:52.126098Z",
+      "elapsed_ms": 202.7,
+      "attempts": 1,
+      "response_sha256": "e133538425483b3421b2109f03a988aa796a66f193b6c8dee4a50b26dc339c55",
+      "raw_snippet": [
+        {
+          "operation_id": "EX-100701",
+          "operation_name": "SUNRISE EXAMPLE LEARNING CENTER",
+          "operation_type": "Licensed Child Care Center",
+          "address_line": "300 EXAMPLE AVE",
+          "city": "LAKEVIEW FALLS",
+          "zip_code": "55990",
+          "total_capacity": "40",
+          "operation_status": "ACTIVE"
+        }
+      ],
+      "truncated": false,
+      "error": null
+    }
+  ],
+  "disclaimer": "This dossier is an automated investigative LEAD generated from public records for review by a qualified human investigator and counsel. It is not a finding, allegation or accusation of wrongdoing by any person or entity. Every indicator describes an unverified discrepancy in public data that may have a lawful explanation (data-entry error, stale registry records, legitimate home-based operations, shared professional office space, sponsor or pass-through funding, affiliated entities not linked in public data, etc.). No report has been submitted to any agency by this tool. Do not publish, circulate or act on this document without independent verification."
+}

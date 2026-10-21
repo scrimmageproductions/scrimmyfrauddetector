@@ -20,7 +20,7 @@ def test_retries_then_succeeds_and_records_provenance(make_http):
     payload, rec = http.request_json("test", "GET", "https://example.test/x", params={"a": "1", "b": None})
     assert payload == {"ok": True}
     assert rec.attempts == 3 and len(http.sleeps) == 2
-    assert http.sleeps[1] >= http.sleeps[0] * 1.5  # exponential backoff (jitter <= 0.5)
+    assert 1.0 <= http.sleeps[0] <= 1.5 and 2.0 <= http.sleeps[1] <= 2.5  # base * 2**(n-1) + jitter in [0, 0.5]
     assert rec.url == "https://example.test/x?a=1"
     assert rec.response_sha256 == hashlib.sha256(b'{"ok": true}').hexdigest()
     assert rec.raw_snippet == {"ok": True} and rec.status_code == 200
@@ -31,7 +31,8 @@ def test_honours_retry_after(make_http):
     responses = iter([httpx.Response(429, headers={"Retry-After": "7"}), httpx.Response(200, json={})])
     http = make_http(httpx.MockTransport(lambda req: next(responses)))
     http.request_json("test", "GET", "https://example.test/")
-    assert http.sleeps == [7.0]
+    assert http.sleeps[0] == 7.0  # backoff honours Retry-After
+    assert len(http.sleeps) == 2 and 6.9 < http.sleeps[1] <= 7.0  # and the host stays penalised for the next request
 
 
 def test_gives_up_and_records_failure(make_http):

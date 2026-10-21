@@ -11,15 +11,16 @@
 from __future__ import annotations
 
 import csv
+import json
 import logging
 import math
 import re
 from dataclasses import dataclass, field
 from datetime import date
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from .clients import CensusGeocoderClient, NPPESClient, OverpassClient, SAMEntityClient, SourceAPIError
+from .clients import CensusGeocoderClient, EvidenceLedger, NPPESClient, OverpassClient, SAMEntityClient, SourceAPIError
 from .ingestion import parse_date
 from .models import (
     Address,
@@ -31,9 +32,16 @@ from .models import (
     NPIMatchResult,
     NPIRecord,
     Officer,
+    SourceRecord,
 )
 from .normalize import normalize_address, normalize_entity_name, normalize_person_name, similarity
+from .leie_matcher import LEIE_DOWNLOAD_URL, LEIEMatcher
+from .licensing import LicenseLookup
+from .math_engine import CapacityEngine
 from .verticals import HEALTHCARE_BUSINESS_TYPE_KEYWORDS, HEALTHCARE_NAICS_PREFIXES, Vertical
+
+if TYPE_CHECKING:
+    from .vision_verifier import VisionVerifier
 
 log = logging.getLogger(__name__)
 
@@ -200,15 +208,18 @@ def classify_land_use(address: Address, lat: float, lon: float, elements: list[d
 
 @dataclass
 class FormationDateRecord:
-    formation_date: date
+    formation_date: date | None
     source_note: str
+    registered_agent: str | None = None
+    officers: list[str] = field(default_factory=list)
 
 
 @dataclass
 class OperatorFormationIndex:
-    """Formation dates manually retrieved by the operator (e.g. from a Secretary of State business search).
+    """Corporate-filing facts the operator retrieved by hand (e.g. from a Secretary of State business search).
 
-    CSV columns: ``uei`` and/or ``name``, ``formation_date`` (YYYY-MM-DD), optional ``source_note``.
+    CSV columns: ``uei`` and/or ``name``; optional ``formation_date`` (YYYY-MM-DD), ``registered_agent``,
+    ``officers`` (semicolon-separated) and ``source_note``.
     """
 
     by_uei: dict[str, FormationDateRecord] = field(default_factory=dict)
@@ -221,9 +232,11 @@ class OperatorFormationIndex:
         with open(path, newline="", encoding="utf-8-sig") as fh:
             for row in csv.DictReader(fh):
                 d = parse_date(row.get("formation_date"))
-                if not d:
+                agent = (row.get("registered_agent") or "").strip() or None
+                officers = [o.strip() for o in (row.get("officers") or "").split(";") if o.strip()]
+                if not (d or agent or officers):
                     continue
-                rec = FormationDateRecord(d, row.get("source_note") or f"operator CSV {Path(path).name}")
+                rec = FormationDateRecord(d, row.get("source_note") or f"operator CSV {Path(path).name}", agent, officers)
                 if row.get("uei"):
                     idx.by_uei[row["uei"].strip().upper()] = rec
                 if row.get("name"):
@@ -261,6 +274,11 @@ class CrossReferencer:
         formation_index: OperatorFormationIndex | None = None,
         vertical: Vertical | None = None,
         config: EnrichmentConfig | None = None,
+        leie: LEIEMatcher | None = None,
+        licenses: LicenseLookup | None = None,
+        capacity: CapacityEngine | None = None,
+        vision: VisionVerifier | None = None,
+        ledger: EvidenceLedger | None = None,
     ):
         self.nppes = nppes
         self.geocoder = geocoder
@@ -270,6 +288,11 @@ class CrossReferencer:
         self.vertical = vertical
         self.config = config or EnrichmentConfig()
         self._geo_cache: dict[str, tuple[GeocodeResult, LandUseResult]] = {}
+        self.leie = leie
+        self.licenses = licenses
+        self.capacity = capacity
+        self.vision = vision
+        self.ledger = ledger
 
     def enrich(self, entity: AwardeeEntity) -> EnrichmentData:
         data = EnrichmentData()
@@ -279,17 +302,63 @@ class CrossReferencer:
         if entity.is_healthcare or self.config.npi_for_all:
             data.npi = self._npi(entity)
             self._absorb_npi(entity, data)
+        self._leie(entity, data)
+        self._license_and_capacity(entity, data)
         return data
+
+    @staticmethod
+    def _absorb_filing_people(entity: AwardeeEntity, rec: FormationDateRecord) -> None:
+        people = [(n, "Officer (state filing)", "operator_filings.officer") for n in rec.officers]
+        if rec.registered_agent:
+            people.append((rec.registered_agent, "Registered agent (state filing)", "operator_filings.registered_agent"))
+        for name, title, role in people:
+            norm = normalize_person_name(name)
+            if norm and not any(o.normalized_name == norm for o in entity.officers):
+                entity.officers = [*entity.officers, Officer(name=name, normalized_name=norm, title=title, role_source=role)]
+
+    # -- LEIE / licensing / capacity / vision ------------------------------ #
+
+    def _leie(self, entity: AwardeeEntity, data: EnrichmentData) -> None:
+        if not self.leie:
+            return
+        npis = [m.npi for m in data.npi.matches]
+        res = self.leie.screen(entity, npis)
+        if self.ledger is not None:
+            snippet = {"dataset": res.dataset_path or "in-memory", "dataset_sha256": res.dataset_sha256, "dataset_rows": res.dataset_rows,
+                       "subjects_screened": res.subjects_screened,
+                       "matched_rows": [{"row_number": m.leie_row_number, "strength": m.strength.value, **m.leie_row} for m in res.matches]}
+            url = f"file://{Path(res.dataset_path).resolve()}" if res.dataset_path else LEIE_DOWNLOAD_URL
+            rec = SourceRecord(record_id=self.ledger.new_id("FILE", url, entity.entity_key), source="hhs_oig_leie", method="FILE",
+                               url=url, response_sha256=res.dataset_sha256, raw_snippet=snippet)
+            self.ledger.add(rec, json.dumps(snippet, indent=2, default=str).encode())
+            res.source_record_ids = [rec.record_id]
+        data.leie = res
+
+    def _license_and_capacity(self, entity: AwardeeEntity, data: EnrichmentData) -> None:
+        key = self.vertical.key if self.vertical else None
+        if self.licenses:
+            data.license = self.licenses.lookup(entity, key)
+        if self.capacity:
+            data.capacity = self.capacity.analyze(entity, data.license, key)
+
+    def verify_site(self, entity: AwardeeEntity, data: EnrichmentData) -> None:
+        """Street-level vision check. Called by the pipeline only for entities that could cross the threshold."""
+        if self.vision and data.geocode.matched:
+            data.vision = self.vision.verify(data.geocode, entity.name)
 
     # -- healthcare -------------------------------------------------------- #
 
     def _classify_healthcare(self, entity: AwardeeEntity) -> None:
         reasons = []
-        if self.vertical and self.vertical.healthcare:
-            reasons.append(f"scan vertical '{self.vertical.key}'")
         naics = sorted({a.naics_code for a in entity.awards if a.naics_code and a.naics_code.startswith(HEALTHCARE_NAICS_PREFIXES)})
         if naics:
             reasons.append(f"award NAICS {', '.join(naics)}")
+        if self.vertical and self.vertical.healthcare:
+            programs = sorted({p for a in entity.awards for p in a.program_numbers if p in self.vertical.program_numbers})
+            if programs:
+                reasons.append(f"Assistance Listing {', '.join(programs)} in healthcare vertical '{self.vertical.key}'")
+            elif not naics and any(not a.naics_code and not a.program_numbers for a in entity.awards):
+                reasons.append(f"scan vertical '{self.vertical.key}' (award carries no NAICS/listing)")
         bt = [b for b in entity.business_types if any(k in b.lower() for k in HEALTHCARE_BUSINESS_TYPE_KEYWORDS)]
         if bt:
             reasons.append(f"business type(s) {', '.join(bt)}")
@@ -303,9 +372,11 @@ class CrossReferencer:
         if self.formation_index:
             rec = self.formation_index.lookup(entity)
             if rec:
-                entity.formation_date = rec.formation_date
-                entity.formation_date_source = f"operator_csv: {rec.source_note}"
-                return
+                self._absorb_filing_people(entity, rec)
+                if rec.formation_date:
+                    entity.formation_date = rec.formation_date
+                    entity.formation_date_source = f"operator_csv: {rec.source_note}"
+                    return
         if self.sam and entity.uei:
             try:
                 payload, record = self.sam.get_entity(entity.uei)

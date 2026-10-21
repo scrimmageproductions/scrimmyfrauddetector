@@ -1,0 +1,132 @@
+{
+  "lead_id": "SCRIMMY-20261021-855CE0663CA0",
+  "created_at": "2026-10-21T04:57:40.697195+00:00",
+  "artifacts": [
+    {
+      "path": "api/SRC-00001-d28314550a.json",
+      "sha256": "16a59f72424265f970c2233e2b85b2328550dc1e14e2649e34a45016eb8142a1",
+      "bytes": 3421,
+      "kind": "api_response",
+      "source_record_id": "SRC-00001-d28314550a",
+      "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+      "retrieved_at": "2026-10-21T04:57:28.136021Z"
+    },
+    {
+      "path": "api/SRC-00002-5558f56104.json",
+      "sha256": "919cda165bc3f9ff6b8b6a4c786792186c74df1baed914cd7268a5804692a4da",
+      "bytes": 2312,
+      "kind": "api_response",
+      "source_record_id": "SRC-00002-5558f56104",
+      "source_url": "https://api.usaspending.gov/api/v2/search/spending_by_award/",
+      "retrieved_at": "2026-10-21T04:57:28.486431Z"
+    },
+    {
+      "path": "api/SRC-00005-090d1f627a.json",
+      "sha256": "366cfe51a55924b97e513ca2cc5b2aee1bfce68f4fa250a3ef2433ee579b833c",
+      "bytes": 645,
+      "kind": "api_response",
+      "source_record_id": "SRC-00005-090d1f627a",
+      "source_url": "https://api.usaspending.gov/api/v2/recipient/00000000-0000-0000-0000-0000aa000001-C/?year=all",
+      "retrieved_at": "2026-10-21T04:57:29.536286Z"
+    },
+    {
+      "path": "api/SRC-00006-98c58fe514.json",
+      "sha256": "a2fc00568aace718b2bf3f0c957f636f52c45ed0d661f755454ef8058ceb8f0a",
+      "bytes": 1158,
+      "kind": "api_response",
+      "source_record_id": "SRC-00006-98c58fe514",
+      "source_url": "https://api.usaspending.gov/api/v2/awards/CONT_AWD_36C26325P0001_3600/",
+      "retrieved_at": "2026-10-21T04:57:29.886267Z"
+    },
+    {
+      "path": "api/SRC-00007-fd7e2ad97d.json",
+      "sha256": "241abe7e9426dc94035120ded11ec763c6880b7cda0a5fccc0b9fcb4afecd8f4",
+      "bytes": 1143,
+      "kind": "api_response",
+      "source_record_id": "SRC-00007-fd7e2ad97d",
+      "source_url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLGRANT0001_7530/",
+      "retrieved_at": "2026-10-21T04:57:30.246113Z"
+    },
+    {
+      "path": "api/SRC-00019-4495301c36.json",
+      "sha256": "efb1737a42c88306d93e4c5a7b0b9c8dc8b812d140a7bf8cc439804a1a10a689",
+      "bytes": 1150,
+      "kind": "api_response",
+      "source_record_id": "SRC-00019-4495301c36",
+      "source_url": "https://api.usaspending.gov/api/v2/awards/ASST_NON_EXMPLGRANT0003_7530/",
+      "retrieved_at": "2026-10-21T04:57:34.436210Z"
+    },
+    {
+      "path": "api/SRC-00027-6bb37001b5.json",
+      "sha256": "16f3d3cd6aa4eb3ad377c5223eaa36981e6695e279c2bb6d1a51276bc62f54bc",
+      "bytes": 386,
+      "kind": "api_response",
+      "source_record_id": "SRC-00027-6bb37001b5",
+      "source_url": "https://geocoding.geo.census.gov/geocoder/locations/address?street=4410+EXAMPLE+LANE&city=LAKEVIEW+FALLS&state=MN&zip=55990&benchmark=Public_AR_Current&format=json",
+      "retrieved_at": "2026-10-21T04:57:34.941801Z"
+    },
+    {
+      "path": "api/SRC-00028-e278d3d52c.json",
+      "sha256": "94dccf6116455446b449ac24af2be3e80c4ade3a6b54156dcec657d0e6fe98aa",
+      "bytes": 346,
+      "kind": "api_response",
+      "source_record_id": "SRC-00028-e278d3d52c",
+      "source_url": "https://overpass-api.de/api/interpreter",
+      "retrieved_at": "2026-10-21T04:57:35.938760Z"
+    },
+    {
+      "path": "api/SRC-00029-cfcec24422.json",
+      "sha256": "d1d2693d18cee969861c1a7dc0b4023108b4a7567745f4a875ed0f8b0d8973ee",
+      "bytes": 31,
+      "kind": "api_response",
+      "source_record_id": "SRC-00029-cfcec24422",
+      "source_url": "https://npiregistry.cms.hhs.gov/api/?version=2.1&enumeration_type=NPI-2&organization_name=NORTHFIELD+EXAMPLE+HOME+HEALTH%2A&state=MN&limit=200",
+      "retrieved_at": "2026-10-21T04:57:35.939470Z"
+    },
+    {
+      "path": "api/SRC-00030-ea7a787235.json",
+      "sha256": "d1d2693d18cee969861c1a7dc0b4023108b4a7567745f4a875ed0f8b0d8973ee",
+      "bytes": 31,
+      "kind": "api_response",
+      "source_record_id": "SRC-00030-ea7a787235",
+      "source_url": "https://npiregistry.cms.hhs.gov/api/?version=2.1&enumeration_type=NPI-2&organization_name=NORTHFIELD+EXAMPLE%2A&state=MN&limit=200",
+      "retrieved_at": "2026-10-21T04:57:36.290024Z"
+    },
+    {
+      "path": "api/SRC-00031-da2745ce0f.json",
+      "sha256": "d07fd7b7ec1b6ae6f7988a426f73713592a1842e8fdf27762fe498620aebe45c",
+      "bytes": 254,
+      "kind": "dataset_extract",
+      "source_record_id": "SRC-00031-da2745ce0f",
+      "source_url": "https://oig.hhs.gov/exclusions/downloadables/UPDATED.csv",
+      "retrieved_at": "2026-10-21T04:57:36.290327Z"
+    },
+    {
+      "path": "api/SRC-00032-4b96cad94d.json",
+      "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "bytes": 2,
+      "kind": "api_response",
+      "source_record_id": "SRC-00032-4b96cad94d",
+      "source_url": "https://data.example.gov/resource/exmp-l1c3.json?%24where=starts_with%28zip_code%2C+%2755990%27%29+AND+upper%28operation_name%29+like+%27%25NORTHFIELD%25%27&%24limit=50",
+      "retrieved_at": "2026-10-21T04:57:36.290716Z"
+    },
+    {
+      "path": "api/SRC-00033-0013bad5c8.json",
+      "sha256": "9ce383e9052786e75b5726543a8196fa67771236daeae13cd8a3e859aaeb68c9",
+      "bytes": 509,
+      "kind": "api_response",
+      "source_record_id": "SRC-00033-0013bad5c8",
+      "source_url": "https://data.example.gov/resource/exmp-l1c3.json?%24where=starts_with%28zip_code%2C+%2755990%27%29&%24limit=500",
+      "retrieved_at": "2026-10-21T04:57:36.541254Z"
+    },
+    {
+      "path": "ledger.jsonl",
+      "sha256": "bef7648ee7b294a36c3bbd00cca7d0c55fb27ed074ca16ab52a435fff04d7a9a",
+      "bytes": 18414,
+      "kind": "ledger",
+      "source_record_id": null,
+      "source_url": null,
+      "retrieved_at": null
+    }
+  ]
+}

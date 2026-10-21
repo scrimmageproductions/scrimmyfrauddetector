@@ -8,3 +8,5 @@ dist/
 # Scan outputs may contain data about real entities; keep them out of version control.
 dossiers/
 demo_dossiers/
+evidence/
+data/

@@ -18,7 +18,10 @@ import httpx
 
 from .clients import AwardSearchFilters
 from .enrichment import EnrichmentConfig, FormationDateRecord, OperatorFormationIndex
+from .leie_matcher import LEIEMatcher
+from .licensing import LicenseSource
 from .pipeline import PipelineSettings
+from .scorer import ScoringConfig
 from .verticals import VERTICALS
 
 CITY, STATE, ZIP = "LAKEVIEW FALLS", "MN", "55990"
@@ -61,7 +64,20 @@ ENTITIES = {
     ),
 }
 
-FORMATION = {"EXMPLA000001": date(2025, 1, 6), "EXMPLF000006": date(1987, 5, 1), "EXMPLC000003": date(2016, 8, 12)}
+ENTITIES["G"] = dict(
+    name="SUNRISE EXAMPLE LEARNING CENTER LLC", uei="EXMPLG000007", line1="300 EXAMPLE AVENUE", line2=None,
+    officers=[], npi=None,
+    awards=[("grants", "EXMPL-CACFP-0007", "ASST_NON_EXMPLCACFP0007_12D0", 1_200_000.00, "2024-10-01",
+             "Department of Agriculture", "10.558")],
+)
+ENTITIES["H"] = dict(
+    name="PINECREST EXAMPLE HOME CARE LLC", uei="EXMPLH000008", line1="77 NOWHERE EXAMPLE ROAD", line2=None,
+    officers=[], npi=None,
+    awards=[("contracts", "36C26325P0008", "CONT_AWD_36C26325P0008_3600", 260_000.00, "2025-05-19", "Department of Veterans Affairs", "621610")],
+)
+END_DATES = {"ASST_NON_EXMPLCACFP0007_12D0": "2025-09-30"}
+
+FORMATION = {"EXMPLG000007": date(2024, 8, 1), "EXMPLA000001": date(2025, 1, 6), "EXMPLF000006": date(1987, 5, 1), "EXMPLC000003": date(2016, 8, 12)}
 
 # Geocodes (fictional coordinates in a lake) and what OSM "shows" there.
 GEO = {
@@ -70,6 +86,7 @@ GEO = {
     "880 EXAMPLE PKWY": (45.01000, -93.52000),
     "200 EXAMPLE BOULEVARD": (45.02000, -93.53000),
     "1 EXAMPLE HOSPITAL DRIVE": (45.03000, -93.54000),
+    "300 EXAMPLE AVENUE": (45.04000, -93.55000),
 }
 OSM = {
     45.00010: [
@@ -88,6 +105,11 @@ OSM = {
         {"type": "way", "id": 900020, "center": {"lat": 45.02001, "lon": -93.53001}, "tags": {"building": "office"}},
         {"type": "node", "id": 900021, "lat": 45.02002, "lon": -93.53002, "tags": {"office": "company", "name": "Example Office Park"}},
         {"type": "way", "id": 900022, "tags": {"landuse": "commercial"}},
+    ],
+    45.04000: [
+        {"type": "way", "id": 900040, "center": {"lat": 45.04001, "lon": -93.55001}, "tags": {"building": "commercial"}},
+        {"type": "node", "id": 900041, "lat": 45.04002, "lon": -93.55002, "tags": {"amenity": "kindergarten", "name": "Sunrise Example Learning Center"}},
+        {"type": "way", "id": 900042, "tags": {"landuse": "commercial"}},
     ],
     45.03000: [
         {"type": "way", "id": 900030, "center": {"lat": 45.03001, "lon": -93.54001}, "tags": {"building": "hospital", "amenity": "hospital", "name": "Example Regional Medical Center"}},
@@ -114,7 +136,7 @@ def _award_rows(group: str) -> list[dict]:
                 continue
             row = {"internal_id": zlib.crc32(gid.encode()) % 10**8, "Award ID": aid, "Recipient Name": ent["name"],
                    "Recipient UEI": ent["uei"], "recipient_id": _recipient_id(ent["uei"]), "Award Amount": amt,
-                   "Start Date": signed, "End Date": "2026-09-30", "Awarding Agency": agency,
+                   "Start Date": signed, "End Date": END_DATES.get(gid, "2026-09-30"), "Awarding Agency": agency,
                    "Awarding Sub Agency": agency, "Description": "SYNTHETIC DEMO AWARD", "generated_internal_id": gid,
                    "awarding_agency_id": 1, "agency_slug": "example"}
             if group == "contracts":
@@ -139,7 +161,7 @@ def _award_detail(gid: str) -> dict | None:
                 "id": 1, "generated_unique_award_id": gid, "piid" if g == "contracts" else "fain": aid,
                 "category": "contract" if g == "contracts" else "grant", "total_obligation": amt, "date_signed": signed,
                 "description": "SYNTHETIC DEMO AWARD",
-                "period_of_performance": {"start_date": signed, "end_date": "2026-09-30", "last_modified_date": signed},
+                "period_of_performance": {"start_date": signed, "end_date": END_DATES.get(gid, "2026-09-30"), "last_modified_date": signed},
                 "recipient": {"recipient_hash": _recipient_id(ent["uei"])[:-2], "recipient_name": ent["name"],
                               "recipient_uei": ent["uei"], "parent_recipient_uei": None, "parent_recipient_name": None,
                               "business_categories": ["Small Business", "Limited Liability Corporation"] if "LLC" in ent["name"] else ["Small Business"],
@@ -183,6 +205,40 @@ def _npi_results(org_query: str) -> list[dict]:
     return out
 
 
+# A fictional state licensing dataset served as if from a Socrata portal.
+SOCRATA_DOMAIN, SOCRATA_DATASET = "data.example.gov", "exmp-l1c3"
+SOCRATA_COLUMNS = ["operation_id", "operation_name", "operation_type", "address_line", "city", "zip_code",
+                   "total_capacity", "operation_status"]
+LICENSES = [
+    {"operation_id": "EX-100701", "operation_name": "SUNRISE EXAMPLE LEARNING CENTER", "operation_type": "Licensed Child Care Center",
+     "address_line": "300 EXAMPLE AVE", "city": CITY, "zip_code": ZIP, "total_capacity": "40", "operation_status": "ACTIVE"},
+    {"operation_id": "EX-100702", "operation_name": "LITTLE EXAMPLE FAMILY CHILD CARE", "operation_type": "Licensed Family Child Care Home",
+     "address_line": "12 EXAMPLE CT", "city": CITY, "zip_code": ZIP, "total_capacity": "12", "operation_status": "ACTIVE"},
+]
+
+# A fictional LEIE extract in the published column layout.
+LEIE_CSV = (
+    "LASTNAME,FIRSTNAME,MIDNAME,BUSNAME,GENERAL,SPECIALTY,UPIN,NPI,DOB,ADDRESS,CITY,STATE,ZIP,EXCLTYPE,EXCLDATE,REINDATE,WAIVERDATE,WVRSTATE\n"
+    f"PLACEHOLDER,RILEY,,,IND- LIC HC SERV PRO,NURSE/NURSES AIDE,,0000000000,19700101,9 EXAMPLE ST,{CITY},{STATE},{ZIP},1128b4,20210315,00000000,00000000,\n"
+    f"EXAMPLEMAN,OTHER,Q,,IND- LIC HC SERV PRO,NURSE/NURSES AIDE,,0000000000,19700101,1 ELSEWHERE,SOMEWHERE,TX,75001,1128a1,20200101,00000000,00000000,\n"
+).encode()
+
+
+def _socrata(request: httpx.Request) -> httpx.Response:
+    path = request.url.path
+    if path == f"/api/views/{SOCRATA_DATASET}.json":
+        return httpx.Response(200, json={"id": SOCRATA_DATASET, "name": "Example Licensed Child Care Operations",
+                                         "columns": [{"fieldName": c, "name": c.replace("_", " ").title()} for c in SOCRATA_COLUMNS]})
+    if path == f"/resource/{SOCRATA_DATASET}.json":
+        where = request.url.params.get("$where", "")
+        rows = [r for r in LICENSES if f"'{r['zip_code']}'" in where]
+        if "like '%" in where:
+            token = where.split("like '%")[1].split("%'")[0]
+            rows = [r for r in rows if token in r["operation_name"].upper()]
+        return httpx.Response(200, json=rows)
+    return httpx.Response(404, json={"error": "not found"})
+
+
 def _handler(request: httpx.Request) -> httpx.Response:
     url = request.url
     host, path = url.host, url.path
@@ -208,6 +264,8 @@ def _handler(request: httpx.Request) -> httpx.Response:
         if path.startswith("/api/v2/awards/"):
             detail = _award_detail(path.rstrip("/").split("/")[-1])
             return httpx.Response(200, json=detail) if detail else httpx.Response(404, json={"detail": "not found"})
+    if host == SOCRATA_DOMAIN:
+        return _socrata(request)
     if host == "npiregistry.cms.hhs.gov":
         results = _npi_results(url.params.get("organization_name", ""))
         return httpx.Response(200, json={"result_count": len(results), "results": results})
@@ -241,7 +299,12 @@ def demo_formation_index() -> OperatorFormationIndex:
     return idx
 
 
-def demo_settings(output_dir: Path, threshold: int = 50) -> PipelineSettings:
+def demo_license_sources() -> list[LicenseSource]:
+    return [LicenseSource(key="example_state_child_care", kind="socrata", states=[STATE], domain=SOCRATA_DOMAIN,
+                          dataset_id=SOCRATA_DATASET, note="SYNTHETIC demo dataset")]
+
+
+def demo_settings(output_dir: Path, threshold: int = 50, profile: str = "registry") -> PipelineSettings:
     vertical = VERTICALS["home_health"]
     return PipelineSettings(
         filters=AwardSearchFilters(state=STATE, naics_codes=vertical.naics_codes, program_numbers=vertical.program_numbers,
@@ -253,4 +316,7 @@ def demo_settings(output_dir: Path, threshold: int = 50) -> PipelineSettings:
         vertical=vertical,
         enrichment=EnrichmentConfig(),
         formation_index=demo_formation_index(),
+        leie=LEIEMatcher.from_bytes(LEIE_CSV),
+        license_sources=demo_license_sources(),
+        scoring=ScoringConfig.for_profile(profile, high_priority_threshold=threshold),
     )
