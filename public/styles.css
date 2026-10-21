@@ -168,3 +168,23 @@ details.panel > .body { padding: 0 18px 16px; }
   .lead > div:last-child .amount, .lead > div:last-child .amount-sub { text-align: left; }
   .lead-name { white-space: normal; }
 }
+
+/* Anomaly Matrix */
+.matrix-wrap { overflow-x: auto; }
+table.matrix { width: 100%; border-collapse: collapse; font-size: 13px; }
+table.matrix th { color: var(--secondary); font-weight: 500; padding: 10px 6px; border-bottom: 1px solid var(--hairline); white-space: nowrap; text-align: center; }
+table.matrix td { padding: 9px 6px; border-bottom: 1px solid var(--hairline); text-align: center; vertical-align: middle; }
+table.matrix th:first-child, table.matrix td:first-child { text-align: left; }
+table.matrix tr:last-child td { border-bottom: 0; }
+table.matrix tr[data-key] { cursor: pointer; }
+table.matrix tr[data-key]:hover td { background: var(--input); }
+.cell { display: inline-block; min-width: 34px; padding: 2px 8px; border-radius: 999px; font-weight: 600; font-size: 12px; font-variant-numeric: tabular-nums; }
+.cell.hit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
+.cell.hit0 { background: var(--fill); color: var(--secondary); }
+.cell.no { color: var(--tertiary); }
+.cell.na { color: color-mix(in srgb, var(--tertiary) 50%, transparent); }
+.cell.insuf { color: var(--orange); }
+.legend { font-size: 12px; color: var(--secondary); margin-top: 10px; }
+.legend span { margin-right: 14px; }
+.district { font-size: 12px; color: var(--secondary); margin-top: 2px; }
+select[multiple].input { padding: 4px; }

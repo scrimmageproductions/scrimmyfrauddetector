@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from scrimmy import service
-from scrimmy.demo import demo_transport
+from fixtures.api_fixtures import fixture_transport
 
 ROOT = Path(__file__).parents[1]
 
@@ -20,7 +20,7 @@ ROOT = Path(__file__).parents[1]
 def client(monkeypatch):
     from scrimmy.clients import HostRateLimiter
 
-    monkeypatch.setattr(service, "TRANSPORT_FACTORY", demo_transport)
+    monkeypatch.setattr(service, "TRANSPORT_FACTORY", fixture_transport)
     monkeypatch.setattr(service, "LIMITER_FACTORY", lambda: HostRateLimiter({}, default_interval=0.0))
     monkeypatch.delenv("SCRIMMY_ACCESS_TOKEN", raising=False)
     from api.index import app

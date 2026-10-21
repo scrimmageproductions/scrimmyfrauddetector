@@ -18,13 +18,11 @@ so the evidence archive built at the end is byte-for-byte what the APIs returned
 from __future__ import annotations
 
 import base64
-import io
 import logging
 import os
 import secrets
 import tempfile
 import time
-import zipfile
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -33,19 +31,20 @@ import httpx
 from pydantic import BaseModel, Field
 
 from .clients import EvidenceLedger, HostRateLimiter, ResilientHTTP
-from .evidence import EvidenceVault
+from .dossier import DossierExporter, source_record_ids
 from .leie_matcher import LEIE_DOWNLOAD_URL, LEIEMatcher
 from .licensing import LicenseSource
-from .models import AwardeeEntity, EnrichmentData, FraudRiskDossier, RuleStatus, ScoreBreakdown, SourceRecord
+from .models import AwardeeEntity, EnrichmentData, RuleStatus, ScoreBreakdown, SourceRecord
 from .options import ScanOptions
-from .pipeline import Pipeline
+from .pipeline import STRIKE_FORCE_PRESETS, Pipeline
 from .scorer import PHYSICAL_SITE_MISMATCH, PROFILES, DeterministicScorer, ScoringContext
-from .synthesizer import Synthesizer, make_backend
+from .synthesizer import QUICK_PHYSICAL_CHECKLIST, Synthesizer, make_backend
 from .verticals import PRIORITY_VERTICALS, VERTICALS
 
 log = logging.getLogger(__name__)
 
-# Tests replace these to run the service against the offline demo transport without throttling.
+# Dependency-injection hooks: production uses the live network (None = default httpx transport). The test
+# suite swaps in its fixture transport and an unthrottled limiter.
 TRANSPORT_FACTORY: Callable[[], httpx.BaseTransport | None] = lambda: None  # noqa: E731
 LIMITER_FACTORY: Callable[[], HostRateLimiter | None] = lambda: None  # noqa: E731
 
@@ -63,7 +62,10 @@ class ServiceError(Exception):
 class WebScanRequest(BaseModel):
     """The scan settings the browser sends with every step."""
 
+    strike_force: str | None = None
     state: str | None = None
+    states: list[str] = Field(default_factory=list)
+    nationwide: bool = False
     zip_codes: list[str] = Field(default_factory=list)
     verticals: list[str] = Field(default_factory=lambda: list(PRIORITY_VERTICALS))
     min_award: float | None = 250_000.0
@@ -86,7 +88,8 @@ class WebScanRequest(BaseModel):
             raise ServiceError(f"unknown scoring profile {self.scoring_profile!r}")
         one = self.verticals[0] if len(self.verticals) == 1 else None
         opts = ScanOptions(
-            state=self.state, zip_codes=self.zip_codes, vertical=one,
+            state=self.state, states=self.states, zip_codes=self.zip_codes, vertical=one,
+            strike_force=self.strike_force, nationwide=self.nationwide,
             naics=[] if one else sorted({c for k in self.verticals for c in VERTICALS[k].naics_codes}),
             programs=[] if one else sorted({c for k in self.verticals for c in VERTICALS[k].program_numbers}),
             min_award=self.min_award or None, fiscal_year=self.fiscal_year, max_awards=self.max_awards,
@@ -199,7 +202,7 @@ def enrich(req: WebScanRequest, entity: AwardeeEntity) -> dict[str, Any]:
     pipe = _pipeline(req, need_leie=True)
     try:
         pipe.collector.hydrate(entity)
-        enrichment = pipe.cross.enrich(entity)
+        enrichment = pipe.enrich_entity(entity)
         return {"entity": entity.model_dump(mode="json"), "enrichment": enrichment.model_dump(mode="json"), "records": _bundles(pipe.ledger)}
     finally:
         pipe.close()
@@ -237,7 +240,7 @@ def site_check(req: WebScanRequest, entity: AwardeeEntity, enrichment: Enrichmen
         pipe.close()
 
 
-def _build_dossier(req: WebScanRequest, items: list[Item], bundles: list[RecordBundle], entity_key: str) -> tuple[FraudRiskDossier, Synthesizer, EvidenceLedger]:
+def _lead(req: WebScanRequest, items: list[Item], bundles: list[RecordBundle], entity_key: str):
     ctx, scorer, pairs = _context(req, items)
     ledger = _ledger_from(bundles)
     scorer._lookup = ledger.get
@@ -246,37 +249,24 @@ def _build_dossier(req: WebScanRequest, items: list[Item], bundles: list[RecordB
         raise ServiceError(f"entity {entity_key!r} not in the posted scan")
     e, d = match
     bd: ScoreBreakdown = scorer.score(e, d, ctx)
-    synth = Synthesizer(make_backend(req.llm_provider), high_priority_threshold=req.threshold)
-    ids = Pipeline.source_ids(e, d, bd)
     scan_pipe = Pipeline(req.to_options().to_settings(), transport=TRANSPORT_FACTORY())
-    pipe_scan = scan_pipe.scan_context()
+    scan = scan_pipe.scan_context()
     scan_pipe.close()
     caveats = VERTICALS[req.verticals[0]].caveats if len(req.verticals) == 1 else []
-    dossier = synth.build_dossier(e, d, bd, ctx, ledger.subset(ids), pipe_scan, caveats)
-    return dossier, synth, ledger
+    synth = Synthesizer(make_backend(req.llm_provider), high_priority_threshold=req.threshold)
+    return e, d, bd, ctx, ledger, scan, caveats, synth
 
 
 def dossier(req: WebScanRequest, items: list[Item], bundles: list[RecordBundle], entity_key: str) -> dict[str, Any]:
-    d, synth, _ = _build_dossier(req, items, bundles, entity_key)
-    return {"dossier": d.model_dump(mode="json"), "markdown": synth.render_markdown(d)}
+    e, d, bd, ctx, ledger, scan, caveats, synth = _lead(req, items, bundles, entity_key)
+    doc = synth.build_dossier(e, d, bd, ctx, ledger.subset(source_record_ids(e, d, bd)), scan, caveats)
+    return {"dossier": doc.model_dump(mode="json"), "markdown": synth.render_markdown(doc)}
 
 
 def evidence_zip(req: WebScanRequest, items: list[Item], bundles: list[RecordBundle], entity_key: str) -> tuple[str, bytes]:
-    d, synth, ledger = _build_dossier(req, items, bundles, entity_key)
-    ids = {r.record_id for r in d.sources}
-    with tempfile.TemporaryDirectory() as tmp:
-        vault = EvidenceVault(Path(tmp))
-        d.evidence_manifest = vault.archive(d.dossier_id, ids, ledger)
-        d.evidence_dir = d.dossier_id
-        vault.finalize(d.dossier_id, {"dossier.json": d.model_dump_json(indent=2).encode(),
-                                      "dossier.md": synth.render_markdown(d).encode()})
-        buf = io.BytesIO()
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-            root = vault.lead_dir(d.dossier_id)
-            for p in sorted(root.rglob("*")):
-                if p.is_file():
-                    zf.write(p, p.relative_to(root.parent).as_posix())
-    return d.dossier_id, buf.getvalue()
+    e, d, bd, ctx, ledger, scan, caveats, synth = _lead(req, items, bundles, entity_key)
+    doc, data = DossierExporter.export_zip(synth, e, d, bd, ctx, ledger, scan, caveats)
+    return doc.dossier_id, data
 
 
 def capabilities() -> dict[str, Any]:
@@ -288,6 +278,9 @@ def capabilities() -> dict[str, Any]:
         "verticals": {k: VERTICALS[k].label for k in VERTICALS},
         "priority_verticals": PRIORITY_VERTICALS,
         "profiles": list(PROFILES),
+        "strike_forces": {k: {"label": p.label, "metros": list(p.metros), "districts": list(p.districts), "states": p.states}
+                          for k, p in STRIKE_FORCE_PRESETS.items()},
         "max_awards_limit": MAX_AWARDS_LIMIT,
         "access_token_required": bool(os.environ.get("SCRIMMY_ACCESS_TOKEN")),
+        "quick_checklist": QUICK_PHYSICAL_CHECKLIST,
     }

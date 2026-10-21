@@ -28,14 +28,15 @@ Scrimmy is an open-source, deterministic **lead-generation and evidence-compilat
 | `scrimmy/vision_verifier.py` | Street-level imagery retrieval and vision-model classification with strict JSON validation |
 | `scrimmy/network_graph.py` | `networkx` officer/entity/address graph, affiliation grouping, co-location and serial-registration queries, DOT export |
 | `scrimmy/scorer.py` | `DeterministicScorer` and the `registry` / `capacity` weight profiles |
-| `scrimmy/evidence.py` | Write-once evidence vault, `SHA256SUMS`, verification |
+| `scrimmy/evidence.py` | Write-once evidence vault, `provenance.json`, `SHA256SUMS`, verification |
+| `scrimmy/dossier.py` | Evidence provenance & dossier exporter: one call writes the JSON dossier, the Markdown briefing and the hashed evidence archive |
 | `scrimmy/synthesizer.py` | Track A/B routing, statutes, checklists, guarded LLM summary, Markdown/JSON rendering |
 | `scrimmy/pipeline.py`, `scrimmy/options.py`, `scrimmy/main.py` | Orchestrator, shared option builder, CLI |
 | `public/` + `api/index.py` + `scrimmy/service.py` | Hosted web console for Vercel: static front end plus a stateless FastAPI function |
 | `streamlit_app/app.py` | Streamlit console for hosts that run a long-lived process |
-| `scrimmy/demo.py` | Offline synthetic fixtures for `--demo` and the tests. Never used by either console |
+| `tests/fixtures/api_fixtures.py` | Synthetic API responses for the **test suite only**. No runtime code imports them; every scan calls the live endpoints |
 
-The briefs named some files differently; they map as follows: `ingestor.py` → `ingestion.py`, `enricher.py` → `enrichment.py`, `dossier.py` → `synthesizer.py` + `evidence.py`, `api_client.py` → `clients.py`, `forensic_engine.py` → `scorer.py` + `math_engine.py`.
+The briefs named some files differently; they map as follows: `ingestor.py` → `ingestion.py`, `enricher.py` → `enrichment.py`, `api_client.py` → `clients.py`, `forensic_engine.py` → `scorer.py` + `math_engine.py`, and `app.py` → `streamlit_app/app.py` (moved out of the repo root so Vercel cannot mistake it for the Python entrypoint).
 
 ## Install
 
@@ -73,23 +74,27 @@ pip install -r streamlit_app/requirements.txt
 streamlit run streamlit_app/app.py            # http://localhost:8501
 ```
 
-Streamlit keeps a WebSocket open to a long-running server, so it **cannot run on Vercel**. Use Streamlit Community Cloud (entrypoint `streamlit_app/app.py`; it reads `streamlit_app/requirements.txt`), Render, Railway, Fly.io or a VM. Its views are the same as the hosted console: Live Scanner, Target Inspector, Network Map and Dossier Export. It can also download the LEIE and accept an uploaded licensing-sources JSON.
+Streamlit keeps a WebSocket open to a long-running server, so it **cannot run on Vercel**. Use Streamlit Community Cloud (entrypoint `streamlit_app/app.py`; it reads `streamlit_app/requirements.txt`), Render, Railway, Fly.io or a VM. Its views are the same as the hosted console: **Strike Force Scanner** (summary metrics and lead cards that expand into an inline inspector with exports), **Lead Inspector** (identity, map, score breakdown, mathematical breakdown, raw payloads, network graph, checklists), **Anomaly Matrix** (every recipient × every rule) and **Dossier Export**. It can also download the LEIE and accept an uploaded licensing-sources JSON.
 
 ## CLI
 
 ```bash
-# Offline demo (synthetic data, no network), both scoring profiles:
-python -m scrimmy --demo --output ./demo_dossiers
-python -m scrimmy --demo --scoring-profile capacity --output ./demo_dossiers_capacity
+# DOJ Health Care Fraud Strike Force presets (focus counties scanned by county FIPS):
+python -m scrimmy --strike-force florida --fiscal-year 2025 --output ./dossiers
+python -m scrimmy --strike-force gulf_coast --min-award 500000 --leie-csv ./data/LEIE_UPDATED.csv
 
-# Default targeting (child care/nutrition, home health, hospice, clinics), $250k floor, FY2025:
+# Custom states, or nationwide (bounded by --max-awards):
+python -m scrimmy --state MN --state WI --fiscal-year 2025
+python -m scrimmy --nationwide --max-awards 300 --min-award 1000000
+
+# Default targeting (child day care & nutrition 624410/624210, home health 621610, hospice 623110/624120), $250k floor:
 export SCRIMMY_CONTACT="you@example.org"     # courtesy contact sent in the User-Agent
 python -m scrimmy leie-download --output ./data/LEIE_UPDATED.csv
 python -m scrimmy --state MN --fiscal-year 2025 --leie-csv ./data/LEIE_UPDATED.csv --output ./dossiers
 
 # Child care with capacity arithmetic from state licensing data:
 python -m scrimmy --state TX --vertical childcare --scoring-profile capacity \
-  --license-sources config/license_sources.example.json --unit-rate ccdf_child_day=55 --leie-csv ./data/LEIE_UPDATED.csv
+  --license-sources config/license_sources.example.json --unit-rate child_care_subsidy_day=55 --leie-csv ./data/LEIE_UPDATED.csv
 
 # Add street-level site checks (needs an imagery key and a vision model):
 MAPILLARY_TOKEN=... ANTHROPIC_API_KEY=... python -m scrimmy --state MN --vertical hospice --scoring-profile capacity --vision
@@ -102,11 +107,11 @@ Run `python -m scrimmy --help` for every option.
 
 ### Outputs
 
-- `<output>/SCRIMMY-<date>-<id>_<name>.{json,md}`: the dossier. The JSON holds the full entity, enrichment, rule evaluations with evidence, capacity formula, network DOT, track assessment and every cited `SourceRecord`. The Markdown is the briefing, with sections covering the Executive Summary & Lead Classification, Entity Identity & Federal Award Summary, Flagged Discrepancies, Evidence Matrix, Disbursement-to-Capacity Arithmetic, Physical Site Verification, LEIE Screening, Network Summary, Statutory Frameworks, Ground-Truthing Field Checklist, Final Pre-Filing Review, Caveats, and Chain of Custody.
-- `<output>/evidence/<lead_id>/`: write-once raw API responses (byte-for-byte), `ledger.jsonl`, `manifest.json`, `dossier.json`, `dossier.md` and `SHA256SUMS` (check with `sha256sum -c SHA256SUMS`).
+- `<output>/SCRIMMY-<date>-<id>_<name>.{json,md}`: the dossier. The JSON holds the full entity, enrichment, rule evaluations with evidence, capacity formula, network DOT, track assessment and every cited `SourceRecord`. The Markdown is the briefing, for intake agents and whistleblower counsel, with sections covering the Executive Summary & Lead Classification, Strike Force Targeting (district, U.S. Attorney's Office, county), Entity Identity & Federal Award Summary (UEI, CAGE, NPI, award IDs), Flagged Discrepancies, Evidence Matrix, Mathematical Discrepancy Analysis, Physical Site Verification, LEIE Screening, Network Summary, Statutory Frameworks, a 2-Minute Physical Verification Checklist, the Ground-Truthing Field Checklist, Final Pre-Filing Review, Caveats, and Chain of Custody.
+- `<output>/evidence/<lead_id>/`: write-once raw API responses (byte-for-byte), `ledger.jsonl`, `provenance.json` (per call: URL, request body, UTC timestamp, HTTP status, response SHA-256, archived file and its SHA-256), `dossier.json`, `dossier.md` and `SHA256SUMS` (check with `sha256sum -c SHA256SUMS`).
 - `<output>/scan_manifest_<ts>.json` and `source_ledger_<ts>.jsonl`: every screened entity and every HTTP exchange in the scan.
 
-Samples, generated unedited by `--demo` from fictional data: [`examples/sample_dossier.md`](examples/sample_dossier.md) (registry profile), [`examples/sample_dossier_capacity.md`](examples/sample_dossier_capacity.md) (capacity profile), and [`examples/sample_evidence/`](examples/sample_evidence/) (a full evidence archive).
+Samples, generated unedited by the pipeline from the synthetic test fixtures (fictional data): [`examples/sample_dossier.md`](examples/sample_dossier.md) (registry profile), [`examples/sample_dossier_capacity.md`](examples/sample_dossier_capacity.md) (capacity profile), and [`examples/sample_evidence/`](examples/sample_evidence/) (a full evidence archive).
 
 ## Scoring (deterministic, no LLM)
 
@@ -115,7 +120,7 @@ Samples, generated unedited by `--demo` from fictional data: [`examples/sample_d
 | Rule ID | Shown as | registry | capacity | Triggers when |
 |---|---|---:|---:|---|
 | `LEIE_EXCLUSION_MATCH` | Match to HHS-OIG LEIE | 40 | 35 | The entity, an officer, an authorized official or a registered agent matches an active LEIE row by NPI, or by name + state + (city, ZIP or middle initial). Name + state alone is reported for review but never scored. |
-| `MATHEMATICAL_IMPOSSIBILITY` | Statistically Anomalous Disbursement-to-Capacity Ratio | 0 | 40 | (annualized award ÷ (unit rate × operating days)) ÷ licensed capacity > 2.0 |
+| `MATHEMATICAL_IMPOSSIBILITY` | Statistically Anomalous Disbursement-to-Capacity Ratio | 40 | 40 | annualized award ÷ (unit rate × units per day × 365) ÷ capacity > 2.0, where capacity is the matched state license or, failing that, a facility-type ceiling |
 | `PHANTOM_HEALTHCARE_PROVIDER` | Healthcare Recipient Without Active Organizational NPI | 30 | 20 | A healthcare-classified recipient has no active Type-2 NPI matching its name in its state |
 | `HIGH_DOLLAR_RESIDENTIAL_ZONE` | High-Dollar Award at Residential / Mail-Drop Address | 25 | 0 | > $250k awarded at an OSM-residential structure, a CMRA/PMB, or a P.O. Box (not scored if the matched license is home-based) |
 | `PHYSICAL_SITE_MISMATCH` | Unverified Operating Capacity at Observed Site | 0 | 25 | An on-site-service recipient with > $250k awarded, whose imagery (within 4 years of the award) is classified as a residence, mail drop or vacant lot at confidence ≥ 0.75, with no commercial presence mapped in OSM |
@@ -130,11 +135,27 @@ The two weight tables in the briefs differed, so both are kept as profiles. `reg
 
 | Benchmark | Default | Applies to |
 |---|---|---|
-| `cacfp_child_day` | $8.40 per child-day (breakfast + lunch + snack), 250 days | Assistance Listing 10.558, NAICS 624210 |
-| `ccdf_child_day` | none (state-specific; you supply it) | 93.575 / 93.596, NAICS 624410 |
-| `hospice_patient_day` | $220 per patient-day, 365 days | NAICS 623110 / 624120, hospice vertical |
+| `child_nutrition_meal` | $4.50 per meal × 2 meals per child-day, 365 days; ceiling 400 children | Assistance Listings 10.558 / 10.559, NAICS 624210 |
+| `child_care_subsidy_day` | none (state-specific; you supply it), 365 days; ceiling 400 children | 93.575 / 93.596, NAICS 624410 |
+| `hospice_per_diem` | $210 per patient-day, 365 days; ceiling 500 patients | NAICS 623110 / 624120, hospice vertical |
 
-The child-care benchmark is per child-day, not per meal. Each child typically receives several meals a day, so dividing by a single meal rate would overstate headcount roughly threefold.
+`Estimated Daily Beneficiaries = Award ÷ (Statutory Unit Rate × Units per Day × 365)`. Every default is chosen to *under*-estimate headcount, so a flag means the dollars exceed capacity even on generous assumptions. All 365 days are treated as billable. Child nutrition counts the maximum two reimbursable meals per child-day (a single $4.50 meal rate would overstate headcount about twofold). Multi-year awards are spread over their period of performance. When no state license matches, capacity falls back to a facility-type ceiling, and the dossier says which basis it used.
+
+### DOJ Health Care Fraud Strike Force presets
+
+`--strike-force` (CLI) and the sidebar preset select the federal judicial districts and focus counties to scan. USASpending is queried with state + county FIPS location filters, and each recipient's district is confirmed from the county FIPS in the Census geographies response.
+
+| Preset | Districts | Focus area |
+|---|---|---|
+| `florida` | S.D. Fla., M.D. Fla. | Miami-Dade, Broward, Palm Beach; Hillsborough, Pinellas, Pasco (Tampa Bay) |
+| `texas` | S.D. Tex., N.D. Tex. | Harris, Fort Bend (Houston), Hidalgo, Cameron (McAllen); Dallas, Tarrant, Collin, Denton |
+| `west_coast` | C.D. Cal., N.D. Cal., D. Ariz., D. Nev. | Los Angeles, Orange, Riverside, San Bernardino; SF Bay Area counties; Arizona and Nevada statewide |
+| `midwest` | E.D. Mich., N.D. Ill. | Wayne, Oakland, Macomb (Detroit); Cook, DuPage, Lake, Will (Chicago) |
+| `northeast` | E.D.N.Y., D.N.J., E.D. Pa. | Kings, Queens, Richmond, Nassau, Suffolk; New Jersey statewide; Philadelphia, Montgomery, Delaware, Bucks |
+| `gulf_coast` | E.D. La., M.D. La., S.D. Miss. | Orleans, Jefferson, St. Tammany; East Baton Rouge (Baton Rouge is in the *Middle* District of Louisiana); Harrison (Biloxi), Hancock, Jackson |
+| `custom` | | Your states, ZIP codes, or nationwide |
+
+The presets are targeting groupings modelled on where the Strike Forces operate, not official DOJ designations. Each dossier's Strike Force section names the district, the U.S. Attorney's Office and how the district was determined.
 
 **Track A/B routing** is a deterministic suggestion. Track A covers entity-level indicators suited to a criminal or OIG referral. Track B covers multi-entity network, exclusion and reimbursement-volume patterns for civil False Claims Act counsel. Counsel makes the actual decision.
 

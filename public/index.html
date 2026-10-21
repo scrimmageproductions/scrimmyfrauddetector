@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Scrimmy Forensic Console</title>
+  <title>Scrimmy Forensic Workstation</title>
   <meta name="description" content="Live, deterministic screening of federal award recipients against public records. Leads are unverified until a person checks them.">
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='12' fill='none' stroke='%230071E3' stroke-width='4'/%3E%3C/svg%3E">
@@ -15,15 +15,24 @@
     <div class="brand"><span class="brand-mark" aria-hidden="true"></span>Scrimmy</div>
 
     <section>
-      <h2 class="section">Targeting</h2>
+      <h2 class="section">Strike Force targeting</h2>
+      <label class="field-label" for="preset">Preset</label>
+      <select id="preset" class="input"></select>
+      <p class="hint" id="presetHint"></p>
+      <div id="customGeo" hidden>
+        <label class="toggle"><input type="checkbox" id="nationwide"><span class="track"></span>Nationwide</label>
+        <label class="field-label" for="states">States <span class="hint">(⌘/Ctrl-click for several)</span></label>
+        <select id="states" class="input" multiple size="6"></select>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="section">Targets</h2>
       <label class="field-label">Verticals</label>
       <div class="chips" id="verticals" role="group" aria-label="Verticals"></div>
 
-      <label class="field-label" for="state">State</label>
-      <select id="state" class="input"></select>
-
-      <label class="field-label">Minimum award</label>
-      <div class="segmented" id="floor" role="radiogroup" aria-label="Minimum award"></div>
+      <label class="field-label" for="floor">Minimum award <output id="floorOut"></output></label>
+      <input type="range" id="floor" min="0" max="5" step="1" value="1" aria-label="Minimum award">
 
       <label class="field-label" for="fy">Fiscal year</label>
       <select id="fy" class="input"></select>
@@ -36,7 +45,7 @@
       <h2 class="section">Scoring</h2>
       <label class="field-label">Profile</label>
       <div class="segmented" id="profile" role="radiogroup" aria-label="Scoring profile"></div>
-      <label class="field-label" for="threshold">High-priority threshold <output id="thresholdOut"></output></label>
+      <label class="field-label" for="threshold">Anomaly score threshold <output id="thresholdOut"></output></label>
       <input type="range" id="threshold" min="0" max="100" step="5" value="50">
     </section>
 
@@ -70,8 +79,8 @@
     </header>
 
     <main class="main">
-      <h1 class="title">Forensic Console</h1>
-      <p class="sub">Live screening of federal award recipients against USASpending, NPPES, Census, OpenStreetMap and HHS-OIG records. Scores are deterministic. Every lead is unverified until a person checks it.</p>
+      <h1 class="title">Forensic Workstation</h1>
+      <p class="sub">Live screening of federal award recipients in DOJ Health Care Fraud Strike Force regions against USASpending, NPPES, Census, OpenStreetMap and HHS-OIG records. Scores are deterministic. Every lead is unverified until a person checks it.</p>
       <div id="progress" class="card progress" hidden>
         <div class="progress-row"><span id="progressText">Starting…</span><span id="progressCount"></span></div>
         <div class="bar"><div class="bar-fill" id="progressBar"></div></div>

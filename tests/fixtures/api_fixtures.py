@@ -1,9 +1,10 @@
-"""Offline demo: an ``httpx.MockTransport`` serving SYNTHETIC fixtures shaped like the real APIs.
+"""TEST FIXTURES ONLY: an ``httpx.MockTransport`` serving synthetic responses shaped like the real APIs.
 
-All names, identifiers, people and addresses below are fictional ("Example"
-street names, UEIs prefixed ``EXMPL``, ZIP 55990 in a fictional town). They
-exist only to exercise every stage of the pipeline without network access
-and to produce the sample dossier in ``examples/``.
+Nothing in the ``scrimmy`` package imports this module; production code paths only
+ever call the live endpoints. All names, identifiers, people and addresses below are
+fictional ("Example" street names, UEIs prefixed ``EXMPL``, ZIP 55990 in a fictional
+town). They let the test suite exercise every stage offline and regenerate the
+labelled samples in ``examples/``.
 """
 
 from __future__ import annotations
@@ -16,13 +17,13 @@ from urllib.parse import parse_qs
 
 import httpx
 
-from .clients import AwardSearchFilters
-from .enrichment import EnrichmentConfig, FormationDateRecord, OperatorFormationIndex
-from .leie_matcher import LEIEMatcher
-from .licensing import LicenseSource
-from .pipeline import PipelineSettings
-from .scorer import ScoringConfig
-from .verticals import VERTICALS
+from scrimmy.clients import AwardSearchFilters
+from scrimmy.enrichment import EnrichmentConfig, FormationDateRecord, OperatorFormationIndex
+from scrimmy.leie_matcher import LEIEMatcher
+from scrimmy.licensing import LicenseSource
+from scrimmy.pipeline import PipelineSettings
+from scrimmy.scorer import ScoringConfig
+from scrimmy.verticals import VERTICALS
 
 CITY, STATE, ZIP = "LAKEVIEW FALLS", "MN", "55990"
 
@@ -178,7 +179,7 @@ def _award_detail(gid: str) -> dict | None:
 
 
 def _npi_results(org_query: str) -> list[dict]:
-    from .normalize import normalize_entity_name
+    from scrimmy.normalize import normalize_entity_name
 
     q = org_query.rstrip("*").upper()
     out = []
@@ -270,15 +271,22 @@ def _handler(request: httpx.Request) -> httpx.Response:
         results = _npi_results(url.params.get("organization_name", ""))
         return httpx.Response(200, json={"result_count": len(results), "results": results})
     if host == "geocoding.geo.census.gov":
-        street = url.params.get("street", "").upper()
+        assert path == "/geocoder/geographies/onelineaddress", path
+        address = url.params.get("address", "").upper()
+        street = address.split(",")[0].strip()
         coords = GEO.get(street)
         matches = []
         if coords:
             matches = [{"tigerLine": {"side": "L", "tigerLineId": "99999" + str(zlib.crc32(street.encode()) % 10000)},
                         "coordinates": {"x": coords[1], "y": coords[0]},
                         "addressComponents": {"zip": ZIP, "streetName": "EXAMPLE", "city": CITY, "state": STATE},
-                        "matchedAddress": f"{street}, {CITY}, {STATE}, {ZIP}"}]
-        return httpx.Response(200, json={"result": {"input": {"address": {"street": street}, "benchmark": {"benchmarkName": "Public_AR_Current"}},
+                        "matchedAddress": f"{street}, {CITY}, {STATE}, {ZIP}",
+                        "geographies": {
+                            "States": [{"GEOID": "27", "NAME": "Minnesota", "STUSAB": "MN"}],
+                            "Counties": [{"GEOID": "27999", "NAME": "Example County", "STATE": "27", "COUNTY": "999"}],
+                            "Census Tracts": [{"GEOID": "27999000100", "TRACT": "000100", "NAME": "Census Tract 1"}],
+                        }}]
+        return httpx.Response(200, json={"result": {"input": {"address": {"address": address}, "benchmark": {"benchmarkName": "Public_AR_Current"}},
                                                     "addressMatches": matches}})
     if host == "overpass-api.de":
         query = parse_qs(request.content.decode())["data"][0]
@@ -288,23 +296,23 @@ def _handler(request: httpx.Request) -> httpx.Response:
     return httpx.Response(404, json={"error": f"demo transport has no fixture for {url}"})
 
 
-def demo_transport() -> httpx.MockTransport:
+def fixture_transport() -> httpx.MockTransport:
     return httpx.MockTransport(_handler)
 
 
-def demo_formation_index() -> OperatorFormationIndex:
+def fixture_formation_index() -> OperatorFormationIndex:
     idx = OperatorFormationIndex(path="demo")
     for uei, d in FORMATION.items():
         idx.by_uei[uei] = FormationDateRecord(d, "SYNTHETIC demo record standing in for a Secretary of State filing")
     return idx
 
 
-def demo_license_sources() -> list[LicenseSource]:
+def fixture_license_sources() -> list[LicenseSource]:
     return [LicenseSource(key="example_state_child_care", kind="socrata", states=[STATE], domain=SOCRATA_DOMAIN,
                           dataset_id=SOCRATA_DATASET, note="SYNTHETIC demo dataset")]
 
 
-def demo_settings(output_dir: Path, threshold: int = 50, profile: str = "registry") -> PipelineSettings:
+def fixture_settings(output_dir: Path, threshold: int = 50, profile: str = "registry") -> PipelineSettings:
     vertical = VERTICALS["home_health"]
     return PipelineSettings(
         filters=AwardSearchFilters(state=STATE, naics_codes=vertical.naics_codes, program_numbers=vertical.program_numbers,
@@ -315,8 +323,8 @@ def demo_settings(output_dir: Path, threshold: int = 50, profile: str = "registr
         output_dir=output_dir,
         vertical=vertical,
         enrichment=EnrichmentConfig(),
-        formation_index=demo_formation_index(),
+        formation_index=fixture_formation_index(),
         leie=LEIEMatcher.from_bytes(LEIE_CSV),
-        license_sources=demo_license_sources(),
+        license_sources=fixture_license_sources(),
         scoring=ScoringConfig.for_profile(profile, high_priority_threshold=threshold),
     )

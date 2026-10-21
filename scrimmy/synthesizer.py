@@ -167,8 +167,17 @@ RULE_CHECKLIST: dict[str, list[str]] = {
     ],
 }
 
+QUICK_PHYSICAL_CHECKLIST = [
+    "Street View / aerial imagery at the geocoded point: is there a building with signage consistent with the funded service (child care, home health office, hospice)?",
+    "State license lookup for the entity name: is there an active license at this address, and do the license type and capacity match section 6?",
+    "NPPES search (healthcare recipients): is there an active Type-2 NPI whose practice location is this address?",
+    "Secretary of State business search: is the entity active, and do the formation date and officers match this dossier?",
+    "HHS-OIG LEIE online search for each listed officer or authorized official.",
+    "If any check above resolves an indicator, mark it Explained and stop; otherwise continue with the full field checklist (section 12).",
+]
+
 FINAL_REVIEW_CHECKLIST = [
-    "Every section 10 item is completed and documented, and each indicator is marked Explained, Unresolved or Corroborated.",
+    "Every section 12 item is completed and documented, and each indicator is marked Explained, Unresolved or Corroborated.",
     "Each statement in the draft tip cites a primary record you retrieved yourself, not only this dossier.",
     "Observed facts are kept separate from inferences; the wording is neutral; no conclusions of guilt.",
     "Counsel has been consulted on routing (criminal tip vs. qui tam), the public disclosure bar, and original-source status.",
@@ -418,6 +427,8 @@ class Synthesizer:
             "capacity_ratio": cap.capacity_ratio if cap.performed else None,
             "licensed_capacity": cap.licensed_capacity if cap.performed else None,
             "suggested_track": track.primary.split(":")[0] if track and ":" in track.primary else None,
+            "strike_force_district": enrichment.strike_force.district if enrichment.strike_force else None,
+            "strike_force_hub": enrichment.strike_force.hub_label if enrichment.strike_force else None,
         }
 
     def template_summary(self, facts: dict[str, Any]) -> str:
@@ -432,8 +443,10 @@ class Synthesizer:
             f"{facts['total_awarded']} from {agencies}. The deterministic screen assigned an anomaly score of "
             f"{facts['score']}/{facts['score_max']} from {len(flags)} triggered indicator{'s' if len(flags) != 1 else ''}: {titles}."
         )
+        if facts.get("strike_force_district"):
+            p1 += f" The address of record lies in the {facts['strike_force_district']} ({facts['strike_force_hub']} preset)."
         if facts.get("capacity_ratio") is not None:
-            p1 += (f" Benchmark arithmetic implies daily beneficiary volume of {facts['capacity_ratio']}x the licensed capacity "
+            p1 += (f" Benchmark arithmetic implies daily beneficiary volume of {facts['capacity_ratio']}x the comparison capacity "
                    f"of {facts['licensed_capacity']}.")
         if facts.get("suggested_track"):
             p1 += f" Suggested routing for counsel's consideration: Track {facts['suggested_track']} (see table below)."
@@ -549,6 +562,9 @@ class Synthesizer:
         w(f"| Classification | **{priority}**: score **{s.score} / 100** (raw {s.raw_total} of {s.max_possible}; profile `{d.scan.scoring_profile}`; threshold {d.scan.threshold}) |")
         if d.track:
             w(f"| Suggested routing | {c(d.track.primary)} |")
+        sf = enr.strike_force
+        if sf:
+            w(f"| Strike Force target | {c(sf.hub_label)}: {c(sf.district) if sf.district else 'outside the preset districts'} |")
         w(f"| Scan scope | state={d.scan.state or 'any'}; vertical={d.scan.vertical or 'custom'}; min award={_money(d.scan.min_award) if d.scan.min_award else 'none'}; "
           f"period={d.scan.start_date or '2007-10-01'} to {d.scan.end_date or 'today'} |")
         if d.evidence_dir:
@@ -568,7 +584,20 @@ class Synthesizer:
                 w(f"- {r}")
             w("")
 
-        w("## 2. Entity Identity & Federal Award Summary\n")
+        w("## 2. Strike Force Targeting\n")
+        if sf:
+            w("| Field | Value |\n|---|---|")
+            w(f"| Preset | {c(sf.hub_label)} |")
+            w(f"| Federal judicial district | {c(sf.district) or 'not among the preset districts'} |")
+            w(f"| U.S. Attorney's Office | {c(sf.us_attorney_office) or 'n/a'} |")
+            w(f"| County | {c(sf.county_name) or 'n/a'}{' (FIPS ' + sf.county_fips + ')' if sf.county_fips else ''} |")
+            w(f"| Determined from | {c(sf.basis)} |")
+            w("\n_Health care fraud Strike Forces pair the U.S. Attorney's Office for the district with the DOJ Criminal Division "
+              "Fraud Section's Health Care Fraud Unit. Presets are targeting groupings; confirm the district at uscourts.gov._\n")
+        else:
+            w("_No Strike Force preset was selected for this scan._\n")
+
+        w("## 3. Entity Identity & Federal Award Summary\n")
         npi = enr.npi.best_match
         w("| Attribute | Value |\n|---|---|")
         w(f"| Legal name (USASpending) | {c(e.name)} |")
@@ -593,7 +622,7 @@ class Synthesizer:
             w(f"\n_{len(e.awards) - 20} smaller award(s) omitted; see JSON dossier._")
         w("")
 
-        w("## 3. Flagged Discrepancies & Heuristic Breakdown\n")
+        w("## 4. Flagged Discrepancies & Heuristic Breakdown\n")
         w(f"Scorer version `{s.scorer_version}`. Formula: `{s.formula}`\n")
         w("| Rule | Weight | Status | Points | Rationale |\n|---|---:|---|---:|---|")
         for ev in s.evaluations:
@@ -603,7 +632,7 @@ class Synthesizer:
         w(f"| **Total** | {s.max_possible} | | **{s.raw_total}** → score **{s.score}** | |")
         w("")
 
-        w("## 4. Evidence Matrix\n")
+        w("## 5. Evidence Matrix\n")
         if not s.flags:
             w("_No scored indicators._\n")
         src_by_id = {r.record_id: r for r in d.sources}
@@ -621,7 +650,7 @@ class Synthesizer:
                 w(f"| {i} | {c(ev.field)}{note} | {c(val)} | `{ev.source_record_id or 'n/a'}` | {endpoint} | {when} |")
             w("")
 
-        w("## 5. Disbursement-to-Capacity Arithmetic\n")
+        w("## 6. Mathematical Discrepancy Analysis\n")
         cap = enr.capacity
         lic = enr.license.best_match
         if lic:
@@ -634,19 +663,20 @@ class Synthesizer:
         if cap.performed:
             w("| Input | Value |\n|---|---|")
             w(f"| Benchmark | {c(cap.benchmark_label)} |")
-            w(f"| Unit rate (per beneficiary-day) | {_money(cap.unit_rate or 0)} |")
+            w(f"| Statutory unit rate | {_money(cap.unit_rate or 0)} per unit |")
+            w(f"| Units per beneficiary-day | {cap.units_per_beneficiary_day:g} |")
             w(f"| Operating days / year | {cap.operating_days_per_year} |")
             w(f"| Award total (benchmark-mapped awards) | {_money(cap.award_total or 0)} |")
             w(f"| Period | {cap.period_start} to {cap.period_end} ({cap.period_years} yr; annualized over max(1, years)) |")
             w(f"| Annualized disbursement | {_money(cap.annualized_disbursement or 0)} |")
             w(f"| Estimated daily beneficiaries | **{cap.estimated_daily_beneficiaries:,.2f}** |")
-            w(f"| Licensed capacity | **{cap.licensed_capacity}** |")
+            w(f"| {'Licensed capacity (state license)' if cap.capacity_basis == 'state_license' else 'Facility-type plausibility ceiling (no license matched)'} | **{cap.licensed_capacity}** |")
             w(f"| Ratio (threshold > {cap.ratio_threshold}) | **{cap.capacity_ratio:.3f}x** |")
             w(f"\n`{cap.formula}`\n\n_Rate source: {c(cap.benchmark_citation)}_\n")
         else:
             w(f"_Not computed: {c(cap.reason_not_performed) or 'no capacity data'}_\n")
 
-        w("## 6. Physical Site Verification\n")
+        w("## 7. Physical Site Verification\n")
         geo = enr.geocode
         if geo.performed:
             w(f"- **Census Geocoder**: {'matched `' + c(geo.matched_address) + f'` at ({geo.latitude}, {geo.longitude}), TIGER line {geo.tiger_line_id}' if geo.matched else 'no address match' + (' (' + c(geo.error) + ')' if geo.error else '')}.")
@@ -666,7 +696,7 @@ class Synthesizer:
             w(f"- **Street-level vision**: not available ({c(v.error) or 'not run'}).")
         w("")
 
-        w("## 7. Exclusion Screening (HHS-OIG LEIE)\n")
+        w("## 8. Exclusion Screening (HHS-OIG LEIE)\n")
         L = enr.leie
         if L.performed:
             w(f"Screened {len(L.subjects_screened)} subject(s) against {L.dataset_rows:,} active exclusions (file `{c(L.dataset_path) or 'in-memory'}`, SHA-256 `{(L.dataset_sha256 or '')[:16]}…`).\n")
@@ -680,7 +710,7 @@ class Synthesizer:
         else:
             w(f"_Not screened: {c(L.error) or 'no LEIE file supplied'}._\n")
 
-        w("## 8. Network Summary\n")
+        w("## 9. Network Summary\n")
         n = d.network
         w(f"Connected component: **{len(n.component_entities)}** awardee(s), {_money(n.component_total_awarded)} total awarded in scope. "
           "Graphviz DOT of the component is in the JSON dossier (`network.dot`).\n")
@@ -694,33 +724,41 @@ class Synthesizer:
                 w(f"| {c(r['name'])} | {r['uei'] or 'n/a'} | {c(r['address'])} | {_money(r['total_awarded'])} | {c('; '.join(r['officers']))} | {', '.join(r['linked_by'])} |")
         w("")
 
-        w("## 9. Relevant Statutory Frameworks\n")
+        w("## 10. Relevant Statutory Frameworks\n")
         w("_Frameworks a reviewing authority may consider if, and only if, independent verification substantiates the "
           "observations. Listing a statute is not a legal conclusion. Consult qualified counsel._\n")
         for st in d.statutory_references:
             w(f"- **{st['name']}**, {st['citation']}: {st['relevance']}")
         w("")
 
-        w("## 10. Ground-Truthing Field Checklist\n")
+        w("## 11. 2-Minute Physical Verification Checklist\n")
+        w("_Fast triage, using public sources, of whether this lead deserves the full field work in section 12. It does not replace section 12._\n")
+        for item in QUICK_PHYSICAL_CHECKLIST:
+            w(f"- [ ] {item}")
+        w("")
+
+        w("## 12. Ground-Truthing Field Checklist\n")
         w("_Follow `docs/FIELD_INVESTIGATOR_SOP.md`. Public records and public right-of-way observation only._\n")
         for item in d.ground_truthing_checklist:
             w(f"- [ ] {item}")
         w("")
 
-        w("## 11. Final Pre-Filing Review\n")
-        w("_A short final check before anything is filed. It assumes section 10 is complete; it does not replace it._\n")
+        w("## 13. Final Pre-Filing Review\n")
+        w("_A short final check before anything is filed. It assumes section 12 is complete; it does not replace it._\n")
         for item in FINAL_REVIEW_CHECKLIST:
             w(f"- [ ] {item}")
         w("")
 
-        w("## 12. Caveats & Limitations\n")
+        w("## 14. Caveats & Limitations\n")
         for cv in d.caveats:
             w(f"- {cv}")
         w("")
 
-        w("## 13. Chain of Custody\n")
+        w("## 15. Chain of Custody\n")
         if d.evidence_manifest:
-            w(f"Raw artifacts archived write-once under `{d.evidence_dir}`. `SHA256SUMS` there covers every file, including this dossier.\n")
+            w(f"Raw API responses are archived write-once under `{d.evidence_dir}`. `provenance.json` there records, for every "
+              "call, the exact URL, request body, UTC timestamp, HTTP status and the SHA-256 of the response as received. "
+              "`SHA256SUMS` covers every file, including this dossier.\n")
             w("| Artifact | Kind | Bytes | SHA-256 | Source URL | Retrieved (UTC) |\n|---|---|---:|---|---|---|")
             for art in d.evidence_manifest:
                 w(f"| `{art.path}` | {art.kind} | {art.bytes:,} | `{art.sha256[:16]}…` | {c((art.source_url or '')[:90])} | {f'{art.retrieved_at:%Y-%m-%d %H:%M:%S}' if art.retrieved_at else ''} |")

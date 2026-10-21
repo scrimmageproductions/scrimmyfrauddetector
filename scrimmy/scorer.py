@@ -16,8 +16,8 @@ Every rule returns a ``RuleEvaluation`` regardless of outcome:
 
 Two weight profiles ship by default:
 
-* ``registry``: public-registry signals only (works with zero API keys).
-* ``capacity``: adds licensed-capacity arithmetic and street-level vision checks.
+* ``registry``: public-registry signals plus capacity arithmetic (works with zero API keys).
+* ``capacity``: weights licensed-capacity arithmetic and street-level vision checks.
 """
 
 from __future__ import annotations
@@ -78,7 +78,7 @@ PROFILES: dict[str, dict] = {
     "registry": {
         "weights": {LEIE_EXCLUSION_MATCH: 40, PHANTOM_HEALTHCARE_PROVIDER: 30, HIGH_DOLLAR_RESIDENTIAL_ZONE: 25,
                     NEWLY_FORMED_WINDFALL: 20, CO_LOCATED_SHELL_CLUSTER: 20, EXECUTIVE_SERIAL_REGISTRATION: 15,
-                    UNRESOLVED_PHYSICAL_DISCREPANCY: 10, MATHEMATICAL_IMPOSSIBILITY: 0, PHYSICAL_SITE_MISMATCH: 0},
+                    UNRESOLVED_PHYSICAL_DISCREPANCY: 10, MATHEMATICAL_IMPOSSIBILITY: 40, PHYSICAL_SITE_MISMATCH: 0},
         "serial_min_entities": 2,
     },
     "capacity": {
@@ -270,15 +270,17 @@ class DeterministicScorer:
                              "name_similarity": lic.name_similarity if lic else None})
         ev += self._evidence([], "capacity.formula", c.formula, note=f"benchmark: {c.benchmark_label}; {c.benchmark_citation}")
         assert c.capacity_ratio is not None and c.ratio_threshold is not None
+        basis = ("the state-licensed capacity" if c.capacity_basis == "state_license"
+                 else "the facility-type plausibility ceiling (no state license matched)")
         if c.capacity_ratio > c.ratio_threshold:
             return self._ev(
                 MATHEMATICAL_IMPOSSIBILITY, RuleStatus.TRIGGERED,
                 f"Federal disbursements of {self._money(c.award_total or 0)} imply ~{c.estimated_daily_beneficiaries:,.1f} "
-                f"beneficiaries per operating day at the benchmark rate, {c.capacity_ratio:.2f}x the licensed capacity of "
-                f"{c.licensed_capacity} (threshold > {c.ratio_threshold}x). Statistically anomalous disbursement-to-capacity "
-                f"ratio; assumes the award funded beneficiary-days at this licensed site only.", ev)
+                f"beneficiaries per day at the benchmark rate, {c.capacity_ratio:.2f}x {basis} of {c.licensed_capacity} "
+                f"(threshold > {c.ratio_threshold}x). Statistically anomalous disbursement-to-capacity ratio; assumes the "
+                f"award funded beneficiary-days at a single site.", ev)
         return self._ev(MATHEMATICAL_IMPOSSIBILITY, RuleStatus.NOT_TRIGGERED,
-                        f"Implied {c.estimated_daily_beneficiaries:,.1f} beneficiaries/day = {c.capacity_ratio:.2f}x licensed capacity "
+                        f"Implied {c.estimated_daily_beneficiaries:,.1f} beneficiaries/day = {c.capacity_ratio:.2f}x {basis} of "
                         f"{c.licensed_capacity} (threshold > {c.ratio_threshold}x).", ev)
 
     # -- NPI --------------------------------------------------------------- #

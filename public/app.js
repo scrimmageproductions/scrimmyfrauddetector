@@ -8,20 +8,24 @@
 "use strict";
 
 const STATES = ["AL","AK","AZ","AR","CA","CO","CT","DE","DC","FL","GA","HI","ID","IL","IN","IA","KS","KY","LA","ME","MD","MA","MI","MN","MS","MO","MT","NE","NV","NH","NJ","NM","NY","NC","ND","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VT","VA","WA","WV","WI","WY","PR","GU","VI","AS","MP"];
-const FLOORS = [["$100K", 100000], ["$250K", 250000], ["$500K", 500000], ["$1M+", 1000000]];
-const VIEWS = ["Live Scanner", "Target Inspector", "Network Map", "Dossier Export"];
+const FLOORS = [["$100K", 100000], ["$250K", 250000], ["$500K", 500000], ["$1M", 1000000], ["$2.5M", 2500000], ["$5M+", 5000000]];
+const VIEWS = ["Strike Force Scanner", "Lead Inspector", "Anomaly Matrix", "Dossier Export"];
+// Short investigator-facing labels; dossiers use the neutral rule titles.
 const PILLS = {
-  MATHEMATICAL_IMPOSSIBILITY: ["Capacity Variance", "red"], LEIE_EXCLUSION_MATCH: ["LEIE Match", "red"],
-  PHANTOM_HEALTHCARE_PROVIDER: ["No Active NPI", "orange"], HIGH_DOLLAR_RESIDENTIAL_ZONE: ["Residential / Mail Drop", "orange"],
+  MATHEMATICAL_IMPOSSIBILITY: ["Capacity Impossibility", "red"], LEIE_EXCLUSION_MATCH: ["LEIE Exclusion Match", "red"],
+  PHANTOM_HEALTHCARE_PROVIDER: ["Missing NPI Provider", "orange"], HIGH_DOLLAR_RESIDENTIAL_ZONE: ["Residential / Mail Drop", "orange"],
   PHYSICAL_SITE_MISMATCH: ["Site Mismatch", "orange"], NEWLY_FORMED_WINDFALL: ["Newly Formed", "yellow"],
-  CO_LOCATED_SHELL_CLUSTER: ["Co-location", "purple"], EXECUTIVE_SERIAL_REGISTRATION: ["Serial Officer", "indigo"],
+  CO_LOCATED_SHELL_CLUSTER: ["Co-located Cluster", "purple"], EXECUTIVE_SERIAL_REGISTRATION: ["Serial Officer", "indigo"],
   UNRESOLVED_PHYSICAL_DISCREPANCY: ["Unresolved Address", "gray"],
 };
+const MATRIX_COLS = [["LEIE_EXCLUSION_MATCH", "LEIE"], ["MATHEMATICAL_IMPOSSIBILITY", "Capacity"], ["PHANTOM_HEALTHCARE_PROVIDER", "NPI"],
+  ["HIGH_DOLLAR_RESIDENTIAL_ZONE", "Residential"], ["PHYSICAL_SITE_MISMATCH", "Site"], ["NEWLY_FORMED_WINDFALL", "New entity"],
+  ["CO_LOCATED_SHELL_CLUSTER", "Co-location"], ["EXECUTIVE_SERIAL_REGISTRATION", "Officers"], ["UNRESOLVED_PHYSICAL_DISCREPANCY", "Address"]];
 const ENRICH_CONCURRENCY = 2; // be polite to public APIs: each function instance throttles itself, the browser caps fan-out
 
 const S = {
   caps: null, view: VIEWS[0], selected: null, running: false, opts: null,
-  verticals: new Set(), floor: 250000, profile: "registry",
+  verticals: new Set(), profile: "registry",
   scan: null, // {entities: Map key->{entity, enrichment, error}, records: Map id->bundle, results, network, awardsScanned, failedGroups, dossiers: Map}
 };
 
@@ -59,7 +63,6 @@ function segmented(el, options, current, onPick, role = "radio") {
 }
 
 function renderControls() {
-  segmented($("floor"), FLOORS, S.floor, (v) => { S.floor = v; renderControls(); });
   segmented($("profile"), [["Registry", "registry"], ["Capacity", "capacity"]], S.profile, (v) => { S.profile = v; renderControls(); });
   segmented($("views"), VIEWS.map((v) => [v, v]), S.view, (v) => { S.view = v; renderControls(); render(); }, "tab");
   const chips = $("verticals");
@@ -75,21 +78,35 @@ function renderControls() {
 }
 
 function shortLabel(key) {
-  return { childcare: "Child care", home_health: "Home health", hospice: "Hospice", clinics: "Clinics", healthcare: "Healthcare",
+  return { childcare: "Child care & nutrition", home_health: "Home health", hospice: "Hospice", clinics: "Clinics", healthcare: "Healthcare",
            behavioral_health: "Behavioral", food_nutrition: "Nutrition", housing: "Housing" }[key] || key;
 }
 
+function syncPreset() {
+  const key = $("preset").value, p = S.caps.strike_forces[key];
+  $("customGeo").hidden = Boolean(p);
+  $("presetHint").innerHTML = p ? `${esc(p.metros.join(", "))}<br>${esc(p.districts.join("; "))}` : "Choose states, or scan nationwide.";
+  $("states").disabled = $("nationwide").checked;
+}
+
 function initControls() {
-  $("state").innerHTML = STATES.map((s) => `<option${s === "MN" ? " selected" : ""}>${s}</option>`).join("");
+  $("preset").innerHTML = Object.entries(S.caps.strike_forces).map(([k, p]) => `<option value="${esc(k)}">${esc(p.label)}</option>`).join("")
+    + `<option value="custom">Custom / Nationwide</option>`;
+  $("preset").addEventListener("change", syncPreset);
+  $("nationwide").addEventListener("change", syncPreset);
+  $("states").innerHTML = STATES.map((s) => `<option${s === "MN" ? " selected" : ""}>${s}</option>`).join("");
+  const syncFloor = () => { $("floorOut").textContent = FLOORS[Number($("floor").value)][0]; };
+  $("floor").addEventListener("input", syncFloor); syncFloor();
+  syncPreset();
   const now = new Date();
   const fy = now.getFullYear() + (now.getMonth() >= 9 ? 1 : 0);
   $("fy").innerHTML = `<option value="">All years</option>` + Array.from({ length: fy - 2007 }, (_, i) => fy - i)
-    .map((y, i) => `<option value="${y}"${i === 1 ? " selected" : ""}>FY${y}</option>`).join("");
+    .map((y, i) => `<option value="${y}"${i === 1 ? " selected" : ""}>FY${y}</option>`).join(""); // default: last complete FY
   for (const [id, out] of [["maxAwards", "maxAwardsOut"], ["threshold", "thresholdOut"]]) {
     const sync = () => { $(out).textContent = $(id).value; };
     $(id).addEventListener("input", sync); sync();
   }
-  S.verticals = new Set(S.caps.priority_verticals.slice(0, 1));
+  S.verticals = new Set(S.caps.priority_verticals);
   for (const p of S.caps.llm) $("llm").insertAdjacentHTML("beforeend", `<option value="${esc(p)}">${esc(p)} (prose only)</option>`);
   if (!S.caps.vision) {
     $("useVision").disabled = true; $("visionToggle").classList.add("disabled");
@@ -108,8 +125,13 @@ function collectOptions() {
     const parsed = JSON.parse(raw);
     licenseSources = Array.isArray(parsed) ? parsed : parsed.sources || [];
   }
+  const preset = $("preset").value;
+  const custom = preset === "custom";
+  const nationwide = custom && $("nationwide").checked;
   return {
-    state: $("state").value, verticals: [...S.verticals], min_award: S.floor,
+    strike_force: custom ? null : preset, nationwide,
+    states: custom && !nationwide ? [...$("states").selectedOptions].map((o) => o.value) : [],
+    verticals: [...S.verticals], min_award: FLOORS[Number($("floor").value)][1],
     fiscal_year: $("fy").value ? Number($("fy").value) : null, max_awards: Number($("maxAwards").value),
     threshold: Number($("threshold").value), scoring_profile: S.profile, use_osm: $("useOsm").checked,
     leie: $("useLeie").checked, vision: $("useVision").checked, llm_provider: $("llm").value, license_sources: licenseSources,
@@ -287,16 +309,16 @@ function selector(onChange) {
 
 function render() {
   const v = $("view");
-  if (!S.scan) { v.innerHTML = empty("◎", "Ready to scan", "Choose verticals, a state and an award floor, then run a live scan."); return; }
+  if (!S.scan) { v.innerHTML = empty("◎", "Ready to scan", "Pick a Strike Force preset, verticals and an award floor, then run a live scan."); return; }
   if (S.running && !S.scan.done) { v.innerHTML = empty("◌", "Scan in progress", "Results appear when scoring finishes."); return; }
   if (!S.scan.done) { v.innerHTML = ""; return; }
-  ({ "Live Scanner": viewScanner, "Target Inspector": viewInspector, "Network Map": viewNetwork, "Dossier Export": viewExport })[S.view](v);
+  ({ "Strike Force Scanner": viewScanner, "Lead Inspector": viewInspector, "Anomaly Matrix": viewMatrix, "Dossier Export": viewExport })[S.view](v);
 }
 
 function viewScanner(v) {
   const all = rows();
   const top = Math.max(0, ...all.map((r) => r.score.score));
-  const metrics = [["Live awards scanned", S.scan.awardsScanned], ["Recipients screened", all.length], ["High-priority leads", leads().length], ["Highest score", top]];
+  const metrics = [["Awards scanned", S.scan.awardsScanned], ["Recipients screened", all.length], ["Anomalies flagged", leads().length], ["Highest discrepancy score", top]];
   let html = `<div class="grid4">${metrics.map(([l, x]) => card(`<div class="metric-label">${l}</div><div class="metric-value">${Number(x).toLocaleString()}</div>`)).join("")}</div>`;
   if (!all.length) { v.innerHTML = html + empty("◎", "No awards matched these filters", "Try another state, fiscal year or a lower award floor."); return; }
   const showAll = v.dataset.showAll === "1";
@@ -305,12 +327,13 @@ function viewScanner(v) {
   if (!list.length) {
     html += empty("✓", "No anomalies found matching current threshold", `${all.length} recipients were screened against live records. None scored ${S.opts.threshold} or higher.`);
   } else {
-    html += `<h2 class="section">${showAll ? "All recipients" : "High-priority forensic leads"}</h2>`;
+    html += `<h2 class="section">${showAll ? "All recipients" : "Anomalies flagged"}</h2>`;
     for (const r of list) {
       const e = r.entity;
       html += `<div class="card lead" data-key="${esc(r.entity_key)}" tabindex="0" role="button" aria-label="Inspect ${esc(e.name)}">${ring(r.score.score)}
         <div class="lead-main"><div class="lead-name">${esc(e.name)}</div>
         <div class="lead-meta">${esc(oneLine(e.address) || "No address published")} · UEI ${esc(e.uei || "n/a")} · ${e.awards.length} award${e.awards.length === 1 ? "" : "s"}</div>
+        ${r.enrichment.strike_force?.district ? `<div class="district">${esc(r.enrichment.strike_force.district)}</div>` : ""}
         <div>${pills(r.score)}</div></div>
         <div><div class="amount">${money(e.total_awarded)}</div><div class="amount-sub">awarded in scope</div></div></div>`;
     }
@@ -318,7 +341,7 @@ function viewScanner(v) {
   v.innerHTML = html;
   $("showAll").addEventListener("change", (e) => { v.dataset.showAll = e.target.checked ? "1" : "0"; viewScanner(v); });
   v.querySelectorAll(".lead").forEach((el) => {
-    const go = () => { S.selected = el.dataset.key; S.view = "Target Inspector"; renderControls(); render(); };
+    const go = () => { S.selected = el.dataset.key; S.view = "Lead Inspector"; renderControls(); render(); };
     el.addEventListener("click", go);
     el.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); go(); } });
   });
@@ -334,6 +357,8 @@ function viewInspector(v) {
     ["UEI / CAGE", `${e.uei || "n/a"} / ${e.cage || "n/a"}`],
     ["Organizational NPI", npi ? `${npi.npi} (${npi.status})` : enr.npi?.performed ? "none matched" : "not checked"],
     ["Total awarded", `${dollars(e.total_awarded)} · ${e.awards.length} award(s)`],
+    ["Strike Force district", enr.strike_force ? (enr.strike_force.district || "outside preset districts") : "no preset"],
+    ["County / tract", `${enr.geocode.county_name || "n/a"} / ${enr.geocode.census_tract || "n/a"}`],
     ["Formation date", e.formation_date || "unknown"],
     ["People on record", e.officers.map((o) => o.name).join("; ") || "none published"],
     ["Land use (OSM)", enr.land_use.classification],
@@ -341,7 +366,7 @@ function viewInspector(v) {
   ];
   const cap = enr.capacity;
   const capHtml = cap.performed
-    ? `<div class="grid4" style="grid-template-columns:repeat(3,1fr)">${[["Implied daily beneficiaries", cap.estimated_daily_beneficiaries.toFixed(1)], ["Licensed capacity", cap.licensed_capacity], ["Ratio (threshold " + cap.ratio_threshold + "x)", cap.capacity_ratio.toFixed(2) + "x"]].map(([l, x]) => card(`<div class="metric-label">${esc(l)}</div><div class="metric-value">${esc(x)}</div>`)).join("")}</div>
+    ? `<div class="grid4" style="grid-template-columns:repeat(3,1fr)">${[["Implied daily beneficiaries", cap.estimated_daily_beneficiaries.toFixed(1)], [cap.capacity_basis === "state_license" ? "Licensed capacity" : "Facility-type ceiling", cap.licensed_capacity], ["Ratio (threshold " + cap.ratio_threshold + "x)", cap.capacity_ratio.toFixed(2) + "x"]].map(([l, x]) => card(`<div class="metric-label">${esc(l)}</div><div class="metric-value">${esc(x)}</div>`)).join("")}</div>
        <div class="code">${esc(cap.formula)}</div><p class="hint">${esc(cap.benchmark_label)}. ${esc(cap.benchmark_citation)}</p>`
     : `<p>${esc(cap.reason_not_performed || "Not computed.")}</p>`;
   const vis = enr.vision;
@@ -368,10 +393,14 @@ function viewInspector(v) {
         <td class="${ev.status === "triggered" && ev.points_awarded ? "status-triggered" : ""}">${esc(ev.status.replace(/_/g, " "))}</td>
         <td class="num">${ev.weight}</td><td class="num">${ev.points_awarded}</td><td>${esc(ev.rationale)}</td></tr>`).join("")}
       </tbody></table><div class="code" style="margin-top:12px">${esc(s.formula)}</div>`)}
-    <details class="panel"${cap.performed ? " open" : ""}><summary>Disbursement-to-capacity arithmetic</summary><div class="body">${capHtml}</div></details>
+    <details class="panel" open><summary>Mathematical breakdown</summary><div class="body">${capHtml}</div></details>
     <details class="panel"><summary>Physical site verification</summary><div class="body">${siteHtml}</div></details>
     <details class="panel"><summary>Raw API payloads (chain of custody)</summary><div class="body">${payloads || "<p>None.</p>"}</div></details>
-    <details class="panel" open id="checklistPanel"><summary>Human verification checklist</summary><div class="body"><p class="hint">Loading checklist…</p></div></details>
+    <details class="panel"><summary>Network: shared addresses and officers</summary><div class="body">${networkHtml(r.entity_key)}</div></details>
+    <details class="panel" open><summary>2-minute physical verification checklist</summary><div class="body">
+      ${S.caps.quick_checklist.map((item, i) => `<label class="check"><input type="checkbox" id="q${i}"><span>${esc(item)}</span></label>`).join("")}</div></details>
+    <details class="panel" id="checklistPanel"><summary>Full ground-truthing checklist</summary><div class="body"><p class="hint">Loading checklist…</p></div></details>
+    <div class="export-row" style="margin-top:14px">${exportButtonsHtml(0)}</div>
     <details class="panel" id="briefingPanel"><summary>Briefing preview</summary><div class="body"><p class="hint">Loading…</p></div></details>`;
 
   if (enr.geocode.matched && window.L) {
@@ -379,6 +408,8 @@ function viewInspector(v) {
     L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "© OpenStreetMap contributors" }).addTo(map);
     L.circleMarker([enr.geocode.latitude, enr.geocode.longitude], { radius: 9, color: "#FF3B30", fillOpacity: 0.6 }).addTo(map);
   }
+  drawGraph(r.entity_key);
+  wireExports(v, [r]);
   getDossier(r).then((d) => {
     if (S.selected !== r.entity_key || !$("checklistPanel")) return;
     $("checklistPanel").querySelector(".body").innerHTML = d.dossier.ground_truthing_checklist
@@ -390,33 +421,60 @@ function viewInspector(v) {
   });
 }
 
-function viewNetwork(v) {
-  if (!rows().length) { v.innerHTML = empty("◎", "No network to show", "The scan returned no recipients."); return; }
-  const head = selector(() => viewNetwork(v));
-  const n = S.scan.network[S.selected];
-  const metrics = [["Entities in component", n.component_entities.length], ["Shared addresses", n.shared_addresses.length], ["Shared people", n.shared_people.length]];
-  v.innerHTML = head + `<div class="grid4" style="grid-template-columns:repeat(3,1fr)">${metrics.map(([l, x]) => card(`<div class="metric-label">${l}</div><div class="metric-value">${x}</div>`)).join("")}</div>
-    ${n.component_entities.length <= 1 && !n.shared_people.length ? empty("◌", "No shared addresses or people", "This recipient is not linked to any other awardee in the scan.") : ""}
-    ${card(`<div class="graph" id="graph"><p class="hint">Rendering graph…</p></div>`)}
+function networkHtml(key) {
+  const n = S.scan.network[key];
+  if (n.component_entities.length <= 1 && !n.shared_people.length) return `<p class="hint">This recipient shares no address or officer with another awardee in the scan.</p>`;
+  return `<div class="graph" id="graph"><p class="hint">Rendering graph…</p></div>
     ${n.shared_addresses.map((a) => `<p><b>Shared address</b> ${esc(a.address)}: ${esc(a.entities.join("; "))}</p>`).join("")}
     ${n.shared_people.map((p) => `<p><b>Shared person</b> ${esc(p.person)}: ${esc(p.entities.join("; "))}</p>`).join("")}`;
+}
+
+function drawGraph(key) {
+  const n = S.scan.network[key];
+  if (!$("graph")) return;
   const draw = () => Viz.instance().then((viz) => {
-    const svg = viz.renderSVGElement(n.dot);
-    const g = $("graph"); if (g) { g.innerHTML = ""; g.appendChild(svg); }
+    const g = $("graph"); if (g) { g.innerHTML = ""; g.appendChild(viz.renderSVGElement(n.dot)); }
   }).catch((err) => { const g = $("graph"); if (g) g.innerHTML = `<div class="alert err">${esc(err.message)}</div>`; });
   if (window.Viz) draw(); else window.addEventListener("load", draw, { once: true });
 }
 
-function viewExport(v) {
-  const list = leads();
-  if (!list.length) { v.innerHTML = empty("✓", "No anomalies found matching current threshold", "Only High-Priority Forensic Leads are exported with evidence archives."); return; }
-  v.innerHTML = list.map((r, i) => card(`<div class="lead">${ring(r.score.score)}<div class="lead-main"><div class="lead-name">${esc(r.entity.name)}</div>
-      <div class="lead-meta">${esc(oneLine(r.entity.address))} · ${money(r.entity.total_awarded)}</div></div></div>`) +
-    `<div class="export-row"><button class="btn" data-i="${i}" data-kind="md">Markdown briefing</button>
-     <button class="btn" data-i="${i}" data-kind="json">JSON provenance</button>
-     <button class="btn" data-i="${i}" data-kind="zip">Evidence archive (.zip)</button></div>`).join("") +
-    `<p class="notice">Each archive holds the raw API responses, ledger, manifest, dossier and a SHA256SUMS file (<code>sha256sum -c SHA256SUMS</code>).
-     Exports are working papers for counsel and investigators. Verify every indicator before any filing.</p>`;
+function matrixCell(r, ruleId) {
+  const ev = r.score.evaluations.find((x) => x.rule_id === ruleId);
+  if (ev.status === "triggered") return `<span class="cell ${ev.points_awarded ? "hit" : "hit0"}" title="${esc(ev.rationale)}">+${ev.points_awarded}</span>`;
+  const [sym, cls] = { not_triggered: ["·", "no"], insufficient_data: ["?", "insuf"], not_applicable: ["–", "na"] }[ev.status];
+  return `<span class="cell ${cls}" title="${esc(ev.rationale)}">${sym}</span>`;
+}
+
+function viewMatrix(v) {
+  if (!rows().length) { v.innerHTML = empty("◎", "No recipients to compare", "Run a live scan with broader filters."); return; }
+  const onlyLeads = v.dataset.onlyLeads === "1";
+  const list = onlyLeads ? leads() : rows();
+  let html = `<label class="toggle"><input type="checkbox" id="onlyLeads"${onlyLeads ? " checked" : ""}><span class="track"></span>Anomalies only</label>`;
+  if (!list.length) {
+    html += empty("✓", "No anomalies found matching current threshold", "Turn off 'Anomalies only' to see every screened recipient.");
+  } else {
+    html += card(`<div class="matrix-wrap"><table class="matrix"><thead><tr><th>Recipient</th><th>Awarded</th>
+      ${MATRIX_COLS.map(([, l]) => `<th>${esc(l)}</th>`).join("")}<th>Score</th></tr></thead><tbody>
+      ${list.map((r) => `<tr data-key="${esc(r.entity_key)}"><td><b>${esc(r.entity.name)}</b><div class="district">${esc(r.enrichment.strike_force?.district || oneLine(r.entity.address))}</div></td>
+        <td>${money(r.entity.total_awarded)}</td>${MATRIX_COLS.map(([id]) => `<td>${matrixCell(r, id)}</td>`).join("")}
+        <td><b>${r.score.score}</b></td></tr>`).join("")}
+      </tbody></table></div>
+      <div class="legend"><span><b>+n</b> triggered</span><span><b>·</b> not triggered</span><span><b>?</b> insufficient data</span><span><b>–</b> not applicable</span><span>Click a row to inspect; hover a cell for the rationale.</span></div>`);
+  }
+  v.innerHTML = html;
+  $("onlyLeads").addEventListener("change", (e) => { v.dataset.onlyLeads = e.target.checked ? "1" : "0"; viewMatrix(v); });
+  v.querySelectorAll("tr[data-key]").forEach((tr) => tr.addEventListener("click", () => {
+    S.selected = tr.dataset.key; S.view = "Lead Inspector"; renderControls(); render();
+  }));
+}
+
+function exportButtonsHtml(i) {
+  return `<button class="btn" data-i="${i}" data-kind="md">Markdown briefing</button>
+     <button class="btn" data-i="${i}" data-kind="json">JSON dossier</button>
+     <button class="btn" data-i="${i}" data-kind="zip">Evidence archive (.zip)</button>`;
+}
+
+function wireExports(v, list) {
   v.querySelectorAll("button[data-kind]").forEach((b) => b.addEventListener("click", async () => {
     const r = list[Number(b.dataset.i)], label = b.textContent;
     b.disabled = true; b.textContent = "Preparing…";
@@ -432,6 +490,18 @@ function viewExport(v) {
     } catch (err) { alerts([["err", err.message]]); }
     b.disabled = false; b.textContent = label;
   }));
+}
+
+function viewExport(v) {
+  const list = leads();
+  if (!list.length) { v.innerHTML = empty("✓", "No anomalies found matching current threshold", "Only flagged leads are exported with evidence archives."); return; }
+  v.innerHTML = list.map((r, i) => card(`<div class="lead">${ring(r.score.score)}<div class="lead-main"><div class="lead-name">${esc(r.entity.name)}</div>
+      <div class="lead-meta">${esc(oneLine(r.entity.address))} · ${money(r.entity.total_awarded)}</div>
+      ${r.enrichment.strike_force?.district ? `<div class="district">${esc(r.enrichment.strike_force.district)}</div>` : ""}</div></div>`) +
+    `<div class="export-row">${exportButtonsHtml(i)}</div>`).join("") +
+    `<p class="notice">Each archive holds the raw API responses, ledger, provenance.json, the dossier and a SHA256SUMS file (<code>sha256sum -c SHA256SUMS</code>).
+     Exports are working papers for intake agents and whistleblower counsel. Verify every indicator before any filing.</p>`;
+  wireExports(v, list);
 }
 
 /* ------------------------------------------------------------------ Boot */

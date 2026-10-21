@@ -215,6 +215,10 @@ class GeocodeResult(StrictModel):
     longitude: float | None = None
     tiger_line_id: str | None = None
     tiger_side: str | None = None
+    state_fips: str | None = None
+    county_fips: str | None = Field(default=None, description="5-digit state+county FIPS from the Census geographies response.")
+    county_name: str | None = None
+    census_tract: str | None = Field(default=None, description="11-digit census tract GEOID.")
     error: str | None = None
     source_record_ids: list[str] = Field(default_factory=list)
 
@@ -240,6 +244,19 @@ class LandUseResult(StrictModel):
     search_radius_m: int | None = None
     error: str | None = None
     source_record_ids: list[str] = Field(default_factory=list)
+
+
+class StrikeForceTarget(StrictModel):
+    """Where a recipient falls relative to the selected DOJ Health Care Fraud Strike Force preset."""
+
+    hub_key: str
+    hub_label: str
+    in_focus_area: bool = Field(description="True if the recipient's county or state is one the preset targets.")
+    district: str | None = Field(default=None, description="Federal judicial district, e.g. 'Southern District of Florida'.")
+    us_attorney_office: str | None = None
+    county_name: str | None = None
+    county_fips: str | None = None
+    basis: str = Field(description="How the district was determined, e.g. 'Census county FIPS 12086'.")
 
 
 class LEIEMatchStrength(StrEnum):
@@ -303,6 +320,8 @@ class CapacityAnalysis(StrictModel):
     unit_rate: float | None = Field(default=None, description="Assumed federal reimbursement per beneficiary-day (USD).")
     operating_days_per_year: int | None = None
     benchmark_citation: str | None = None
+    units_per_beneficiary_day: float | None = Field(default=None, description="Reimbursable units per beneficiary per day (e.g. meals).")
+    capacity_basis: str | None = Field(default=None, description="'state_license' (matched licensed capacity) or 'facility_type_ceiling'.")
     award_total: float | None = None
     period_start: date | None = None
     period_end: date | None = None
@@ -364,6 +383,7 @@ class EnrichmentData(StrictModel):
     license: LicenseLookupResult = Field(default_factory=LicenseLookupResult)
     capacity: CapacityAnalysis = Field(default_factory=CapacityAnalysis)
     vision: VisionVerification = Field(default_factory=VisionVerification)
+    strike_force: StrikeForceTarget | None = None
     notes: list[str] = Field(default_factory=list)
 
 
@@ -437,6 +457,8 @@ class ScanContext(StrictModel):
     max_awards: int | None = None
     threshold: int = 50
     scoring_profile: str = "registry"
+    strike_force: str | None = Field(default=None, description="Strike Force preset key used for targeting, if any.")
+    nationwide: bool = False
     tool_version: str = ""
 
 

@@ -422,10 +422,17 @@ class CrossReferencer:
         self._geo_cache[key] = (geo, land)
         return geo, land
 
+    @staticmethod
+    def one_line(address: Address) -> str:
+        """Street (without unit), city, state ZIP: the form the Census one-line geocoder matches best."""
+        locality = " ".join(p for p in (address.state, address.zip5) if p)
+        return ", ".join(p for p in (address.line1, address.city, locality) if p)
+
     def _geocode(self, address: Address) -> GeocodeResult:
-        geo = GeocodeResult(performed=True, input_address=address.one_line)
+        query = self.one_line(address)
+        geo = GeocodeResult(performed=True, input_address=query)
         try:
-            payload, record = self.geocoder.geocode_components(address.line1 or "", address.city, address.state, address.zip5)
+            payload, record = self.geocoder.geographies_one_line(query)
         except SourceAPIError as exc:
             geo.error = str(exc)
             if exc.record:
@@ -443,6 +450,15 @@ class CrossReferencer:
             geo.latitude = coords.get("y")
             geo.tiger_line_id = str(tiger.get("tigerLineId")) if tiger.get("tigerLineId") else None
             geo.tiger_side = tiger.get("side")
+            layers = m.get("geographies") or {}
+            county = next((v[0] for k, v in layers.items() if "Counties" in k and v), None)
+            tract = next((v[0] for k, v in layers.items() if "Census Tracts" in k and v), None)
+            if county:
+                geo.county_fips = county.get("GEOID")
+                geo.county_name = county.get("NAME")
+                geo.state_fips = county.get("STATE")
+            if tract:
+                geo.census_tract = tract.get("GEOID")
         return geo
 
     def _land_use(self, address: Address, geo: GeocodeResult) -> LandUseResult:

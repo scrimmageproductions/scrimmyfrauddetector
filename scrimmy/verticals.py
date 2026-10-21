@@ -104,7 +104,7 @@ VERTICALS: dict[str, Vertical] = {
 }
 
 # The default target set when no vertical is chosen ("DOJ priority verticals" in the project brief).
-PRIORITY_VERTICALS = ["childcare", "home_health", "hospice", "clinics"]
+PRIORITY_VERTICALS = ["childcare", "home_health", "hospice"]
 
 # NAICS prefixes treated as healthcare when deciding whether NPPES checks apply.
 HEALTHCARE_NAICS_PREFIXES = ("621", "622", "623")

@@ -4,7 +4,9 @@ Layout of ``<evidence_root>/<lead_id>/``::
 
     api/<record_id>.json|.jpg|...   exact response bodies, byte-for-byte as received
     ledger.jsonl                    one SourceRecord per line (URL, request body, UTC timestamp, attempts, hash)
-    manifest.json                   every artifact with size, SHA-256, source URL and retrieval time
+    provenance.json                 cryptographic provenance: for every API call the exact URL, request body,
+                                    UTC timestamp, HTTP status, attempts, SHA-256 of the response as received,
+                                    and the archived file's path, size and SHA-256
     dossier.json / dossier.md       the lead dossier (added after rendering)
     SHA256SUMS                      `sha256sum -c SHA256SUMS` verifies every file above
 
@@ -75,9 +77,27 @@ class EvidenceVault:
         self._write_once(d / "ledger.jsonl", ledger_bytes)
         artifacts.append(EvidenceArtifact(path="ledger.jsonl", sha256=hashlib.sha256(ledger_bytes).hexdigest(),
                                           bytes=len(ledger_bytes), kind="ledger"))
-        manifest = {"lead_id": lead_id, "created_at": utcnow().isoformat(),
-                    "artifacts": [json.loads(a.model_dump_json()) for a in artifacts]}
-        self._write_once(d / "manifest.json", json.dumps(manifest, indent=2).encode())
+        by_record = {a.source_record_id: a for a in artifacts if a.source_record_id}
+        provenance = {
+            "lead_id": lead_id,
+            "created_at": utcnow().isoformat(),
+            "hash_algorithm": "SHA-256",
+            "records": [
+                {
+                    "record_id": rec.record_id, "source": rec.source, "method": rec.method, "url": rec.url,
+                    "request_body": rec.request_body, "retrieved_at": rec.retrieved_at.isoformat(), "http_status": rec.status_code,
+                    "attempts": rec.attempts, "response_sha256": rec.response_sha256, "error": rec.error,
+                    "archived_file": by_record[rec.record_id].path if rec.record_id in by_record else None,
+                    "archived_file_sha256": by_record[rec.record_id].sha256 if rec.record_id in by_record else None,
+                    "archived": rec.record_id in by_record,
+                    "response_sha256_scope": ("full source dataset file; archived_file is the extract of matched rows"
+                                              if rec.method == "FILE" else "exact response body; equals archived_file_sha256"),
+                }
+                for rec in records
+            ],
+            "artifacts": [json.loads(a.model_dump_json()) for a in artifacts],
+        }
+        self._write_once(d / "provenance.json", json.dumps(provenance, indent=2, default=str).encode())
         return artifacts
 
     def finalize(self, lead_id: str, extra_files: dict[str, bytes]) -> Path:

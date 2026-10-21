@@ -1,16 +1,16 @@
-"""Scrimmy Forensic Console: a Streamlit front end for live scans.
+"""Scrimmy Forensic Workstation: Streamlit front end over ``scrimmy.pipeline``.
 
+    pip install -r streamlit_app/requirements.txt
     streamlit run streamlit_app/app.py
 
-For Streamlit Community Cloud, Render, Railway, Fly.io or any host that runs a long-lived
-process. Vercel cannot run Streamlit (it needs a persistent WebSocket); the Vercel
-deployment uses public/ + api/index.py instead.
+Runs anywhere a long-lived process can (local desktop, Streamlit Community Cloud, Render,
+Railway, Fly.io). Vercel cannot host Streamlit, which needs a persistent WebSocket; the
+Vercel deployment serves the same workflow from public/ + api/index.py.
 
-Every scan makes live HTTP calls to USASpending.gov, CMS NPPES, the U.S. Census
-Geocoder and OpenStreetMap Overpass (plus HHS-OIG LEIE / state licensing / imagery
-when configured). The app contains no sample, cached or fabricated records. If a
-scan returns nothing, it shows an empty state; if the APIs are unreachable, it shows
-the error.
+Every scan makes live HTTP calls: USASpending.gov awards, CMS NPPES, the Census Geocoder
+(one-line geographies), OpenStreetMap Overpass, plus HHS-OIG LEIE, state licensing and
+imagery when configured. There is no sample, cached or fabricated data in this app. A
+scan that returns nothing shows an empty state; unreachable APIs show the error.
 """
 
 from __future__ import annotations
@@ -28,13 +28,15 @@ import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # repo root, so `scrimmy` imports when run from anywhere
 
-from scrimmy import __version__
-from scrimmy.clients import EvidenceLedger, ResilientHTTP, SourceAPIError
-from scrimmy.leie_matcher import LEIE_DOWNLOAD_URL, LEIEMatcher
-from scrimmy.models import RuleStatus, SourceRecord
-from scrimmy.options import ScanOptions
-from scrimmy.pipeline import Pipeline, ScanResult
-from scrimmy.scorer import (
+from scrimmy import __version__  # noqa: E402
+from scrimmy.clients import EvidenceLedger, ResilientHTTP, SourceAPIError  # noqa: E402
+from scrimmy.dossier import source_record_ids  # noqa: E402
+from scrimmy.leie_matcher import LEIE_DOWNLOAD_URL, LEIEMatcher  # noqa: E402
+from scrimmy.models import RuleStatus, SourceRecord  # noqa: E402
+from scrimmy.options import ScanOptions  # noqa: E402
+from scrimmy.pipeline import CUSTOM_PRESET_KEY, STRIKE_FORCE_PRESETS, EntityResult, Pipeline, ScanResult  # noqa: E402
+from scrimmy.scorer import (  # noqa: E402
+    ALL_RULES,
     CO_LOCATED_SHELL_CLUSTER,
     EXECUTIVE_SERIAL_REGISTRATION,
     HIGH_DOLLAR_RESIDENTIAL_ZONE,
@@ -45,10 +47,10 @@ from scrimmy.scorer import (
     PHYSICAL_SITE_MISMATCH,
     UNRESOLVED_PHYSICAL_DISCREPANCY,
 )
-from scrimmy.synthesizer import Synthesizer, make_backend
-from scrimmy.verticals import PRIORITY_VERTICALS, VERTICALS
+from scrimmy.synthesizer import Synthesizer, make_backend  # noqa: E402
+from scrimmy.verticals import PRIORITY_VERTICALS, VERTICALS  # noqa: E402
 
-st.set_page_config(page_title="Scrimmy Forensic Console", page_icon="◎", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Scrimmy Forensic Workstation", page_icon="◎", layout="wide", initial_sidebar_state="expanded")
 
 DATA_DIR = Path(os.environ.get("SCRIMMY_DATA_DIR", "./data"))
 OUTPUT_ROOT = Path(os.environ.get("SCRIMMY_OUTPUT_DIR", "./dossiers"))
@@ -57,19 +59,27 @@ LEIE_PATH = DATA_DIR / "LEIE_UPDATED.csv"
 STATES = ["AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA",
           "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND", "OH", "OK", "OR",
           "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY", "PR", "GU", "VI", "AS", "MP"]
-AWARD_FLOORS = {"$100K": 100_000, "$250K": 250_000, "$500K": 500_000, "$1M+": 1_000_000}
+AWARD_FLOORS = {"$100K": 100_000, "$250K": 250_000, "$500K": 500_000, "$1M": 1_000_000, "$2.5M": 2_500_000, "$5M+": 5_000_000}
+VIEWS = ["Strike Force Scanner", "Lead Inspector", "Anomaly Matrix", "Dossier Export"]
+VERTICAL_LABELS = {"childcare": "Child Day Care & Nutrition", "home_health": "Home Health", "hospice": "Hospice", "clinics": "Clinics"}
 
-# Status pills: Apple system colors (light / dark variants handled in CSS).
+# Status pills: Apple system colors (light / dark variants handled in CSS). Short labels for the investigator's view;
+# dossiers use the neutral rule titles.
 PILLS = {
-    MATHEMATICAL_IMPOSSIBILITY: ("Capacity Variance", "red"),
-    LEIE_EXCLUSION_MATCH: ("LEIE Match", "red"),
-    PHANTOM_HEALTHCARE_PROVIDER: ("No Active NPI", "orange"),
+    MATHEMATICAL_IMPOSSIBILITY: ("Capacity Impossibility", "red"),
+    LEIE_EXCLUSION_MATCH: ("LEIE Exclusion Match", "red"),
+    PHANTOM_HEALTHCARE_PROVIDER: ("Missing NPI Provider", "orange"),
     HIGH_DOLLAR_RESIDENTIAL_ZONE: ("Residential / Mail Drop", "orange"),
     PHYSICAL_SITE_MISMATCH: ("Site Mismatch", "orange"),
     NEWLY_FORMED_WINDFALL: ("Newly Formed", "yellow"),
-    CO_LOCATED_SHELL_CLUSTER: ("Co-location", "purple"),
+    CO_LOCATED_SHELL_CLUSTER: ("Co-located Cluster", "purple"),
     EXECUTIVE_SERIAL_REGISTRATION: ("Serial Officer", "indigo"),
     UNRESOLVED_PHYSICAL_DISCREPANCY: ("Unresolved Address", "gray"),
+}
+MATRIX_COLS = {
+    MATHEMATICAL_IMPOSSIBILITY: "Capacity", LEIE_EXCLUSION_MATCH: "LEIE", PHANTOM_HEALTHCARE_PROVIDER: "NPI",
+    HIGH_DOLLAR_RESIDENTIAL_ZONE: "Residential", PHYSICAL_SITE_MISMATCH: "Site", NEWLY_FORMED_WINDFALL: "New entity",
+    CO_LOCATED_SHELL_CLUSTER: "Co-location", EXECUTIVE_SERIAL_REGISTRATION: "Officers", UNRESOLVED_PHYSICAL_DISCREPANCY: "Address",
 }
 
 CSS = """
@@ -133,6 +143,30 @@ div[data-testid="stExpander"] { border-radius: 14px; border: 1px solid var(--hai
 </style>
 """
 
+EXTRA_CSS = """
+<style>
+.sc-matrix { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.sc-matrix th { position: sticky; top: 0; background: var(--surface); color: var(--secondary); font-weight: 500; text-align: center;
+  padding: 10px 6px; border-bottom: 1px solid var(--hairline); white-space: nowrap; }
+.sc-matrix th:first-child, .sc-matrix td:first-child { text-align: left; }
+.sc-matrix td { padding: 9px 6px; border-bottom: 1px solid var(--hairline); text-align: center; vertical-align: middle; }
+.sc-matrix tr:last-child td { border-bottom: 0; }
+.sc-cell { display: inline-block; min-width: 34px; padding: 2px 8px; border-radius: 999px; font-weight: 600; font-size: 12px; font-variant-numeric: tabular-nums; }
+.sc-cell.hit { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
+.sc-cell.hit-0 { background: var(--fill); color: var(--secondary); }
+.sc-cell.no { color: var(--tertiary); }
+.sc-cell.na { color: color-mix(in srgb, var(--tertiary) 50%, transparent); }
+.sc-cell.insuf { color: var(--orange); }
+.sc-score { font-weight: 650; font-variant-numeric: tabular-nums; }
+.sc-legend { font-size: 12px; color: var(--secondary); margin-top: 10px; }
+.sc-legend span { margin-right: 14px; }
+.sc-district { font-size: 12px; color: var(--secondary); }
+.sc-scroll { overflow-x: auto; }
+.sc-matrix th, .sc-matrix td { border-left: 0 !important; border-right: 0 !important; border-top: 0 !important; }
+</style>
+"""
+
+
 
 # --------------------------------------------------------------------------- #
 # Helpers
@@ -163,7 +197,7 @@ def ring(score: int, size: int = 58) -> str:
             f'<text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-size="{size*0.3:.0f}">{score}</text></svg>')
 
 
-def pills(result) -> str:
+def pills(result: EntityResult) -> str:
     out = []
     for ev in result.score.evaluations:
         if ev.status is RuleStatus.TRIGGERED and ev.points_awarded > 0:
@@ -179,6 +213,16 @@ def card(body: str) -> None:
 def empty_state(icon: str, title: str, sub: str) -> None:
     card(f'<div class="sc-empty"><div class="sc-empty-icon">{icon}</div><div class="sc-empty-title">{esc(title)}</div>'
          f'<div class="sc-empty-sub">{esc(sub)}</div></div>')
+
+
+def lead_card(r: EntityResult, size: int = 58) -> None:
+    e = r.entity
+    sf = r.enrichment.strike_force
+    district = f'<div class="sc-district">{esc(sf.district)}</div>' if sf and sf.district else ""
+    card(f'<div class="sc-lead">{ring(r.score.score, size)}<div class="sc-lead-main"><div class="sc-lead-name">{esc(e.name)}</div>'
+         f'<div class="sc-lead-meta">{esc(e.address.one_line or "No address published")} · UEI {esc(e.uei or "n/a")} · '
+         f'{len(e.awards)} award{"s" if len(e.awards) != 1 else ""}</div>{district}<div>{pills(r)}</div></div>'
+         f'<div><div class="sc-amount">{money(e.total_awarded)}</div><div class="sc-amount-sub">awarded in scope</div></div></div>')
 
 
 @st.cache_resource(show_spinner=False)
@@ -209,25 +253,39 @@ def zip_dir(path: Path) -> bytes:
 
 
 # --------------------------------------------------------------------------- #
-# Sidebar: targeting matrix
+# Sidebar: Strike Force targeting
 # --------------------------------------------------------------------------- #
 
 
 def sidebar() -> tuple[ScanOptions, str, bool]:
     sb = st.sidebar
-    sb.markdown('<div class="sc-section">Targeting</div>', unsafe_allow_html=True)
-    verticals = sb.pills("Verticals", PRIORITY_VERTICALS, default=["childcare"], selection_mode="multi",
-                         format_func=lambda k: VERTICALS[k].label.split(" and ")[0].replace("Specialized ", "").title())
-    state = sb.selectbox("State", STATES, index=STATES.index("MN"))
+    sb.markdown('<div class="sc-section">Strike Force targeting</div>', unsafe_allow_html=True)
+    preset_keys = [*STRIKE_FORCE_PRESETS, CUSTOM_PRESET_KEY]
+    preset = sb.selectbox("Preset", preset_keys, index=0,
+                          format_func=lambda k: STRIKE_FORCE_PRESETS[k].label if k in STRIKE_FORCE_PRESETS else "Custom / Nationwide")
+    states: list[str] = []
+    nationwide = False
+    if preset in STRIKE_FORCE_PRESETS:
+        p = STRIKE_FORCE_PRESETS[preset]
+        sb.caption(f"{', '.join(p.metros)}  \n{'; '.join(p.districts)}  \n{len(p.counties)} focus counties"
+                   + (f" + {', '.join(sorted(p.whole_states))} statewide" if p.whole_states else ""))
+    else:
+        nationwide = sb.toggle("Nationwide", value=False, help="No geographic filter; bounded by the number of award rows pulled.")
+        states = sb.multiselect("States", STATES, default=[] if nationwide else ["MN"], disabled=nationwide)
+
+    sb.markdown('<div class="sc-section">Targets</div>', unsafe_allow_html=True)
+    verticals = sb.pills("Verticals", [*PRIORITY_VERTICALS, "clinics"], default=PRIORITY_VERTICALS, selection_mode="multi",
+                         format_func=lambda k: VERTICAL_LABELS.get(k, k))
     floor = sb.select_slider("Minimum award", list(AWARD_FLOORS), value="$250K")
     this_fy = date.today().year + (1 if date.today().month >= 10 else 0)
-    fy = sb.selectbox("Fiscal year", ["All years", *range(this_fy, 2007, -1)], index=1)
+    fy = sb.selectbox("Fiscal year", ["All years", *range(this_fy, 2007, -1)], index=2,  # default: last complete FY
+                      format_func=lambda y: y if y == "All years" else f"FY{y}")
     max_awards = sb.slider("Award rows to pull", 25, 500, 150, step=25)
 
     sb.markdown('<div class="sc-section">Scoring</div>', unsafe_allow_html=True)
     profile = sb.segmented_control("Profile", ["registry", "capacity"], default="registry",
                                    format_func=lambda p: "Registry" if p == "registry" else "Capacity")
-    threshold = sb.slider("High-priority threshold", 0, 100, 50, step=5)
+    threshold = sb.slider("Anomaly score threshold", 0, 100, 50, step=5)
 
     sb.markdown('<div class="sc-section">Cross-references</div>', unsafe_allow_html=True)
     use_osm = sb.toggle("OpenStreetMap land use", value=True)
@@ -242,7 +300,7 @@ def sidebar() -> tuple[ScanOptions, str, bool]:
                 sb.error(f"LEIE download failed: {exc}")
         st.rerun()
     lic_file = sb.file_uploader("State licensing sources (JSON)", type=["json"],
-                                help="See config/license_sources.example.json. Needed for capacity arithmetic.")
+                                help="See config/license_sources.example.json. Without it, capacity is compared with a facility-type ceiling.")
     have_imagery = bool(os.environ.get("MAPILLARY_TOKEN") or os.environ.get("GOOGLE_MAPS_API_KEY"))
     have_vision_llm = bool(os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("OPENAI_API_KEY"))
     use_vision = sb.toggle("Street-level vision check", value=False, disabled=not (have_imagery and have_vision_llm),
@@ -262,7 +320,9 @@ def sidebar() -> tuple[ScanOptions, str, bool]:
 
     selected = verticals or []
     opts = ScanOptions(
-        state=state,
+        strike_force=preset if preset in STRIKE_FORCE_PRESETS else None,
+        states=states,
+        nationwide=nationwide,
         vertical=selected[0] if len(selected) == 1 else None,
         naics=sorted({c for k in selected for c in VERTICALS[k].naics_codes}) if len(selected) > 1 else [],
         programs=sorted({c for k in selected for c in VERTICALS[k].program_numbers}) if len(selected) > 1 else [],
@@ -277,7 +337,7 @@ def sidebar() -> tuple[ScanOptions, str, bool]:
         vision=use_vision,
         output_dir=OUTPUT_ROOT / f"app_{datetime.now(timezone.utc):%Y%m%dT%H%M%SZ}",
     )
-    sb.markdown(f'<div class="sc-notice">scrimmy {__version__}. Live public data only. Leads are unverified and '
+    sb.markdown(f'<div class="sc-notice">scrimmy {__version__}. Live public data only. Leads are unverified, and '
                 f'nothing is ever submitted to any agency.</div>', unsafe_allow_html=True)
     run = sb.button("Run live scan", type="primary", width="stretch")
     return opts, llm, run
@@ -315,8 +375,138 @@ def run_scan(opts: ScanOptions, llm: str) -> None:
             pipeline.close()
         status.update(label=f"Scan complete: {len(result.results)} recipients screened", state="complete", expanded=False)
     st.session_state["result"] = result
-    st.session_state["scan_opts"] = opts
     st.session_state.pop("selected", None)
+
+
+# --------------------------------------------------------------------------- #
+# Inspector (shared by expanding lead cards and the Lead Inspector view)
+# --------------------------------------------------------------------------- #
+
+
+def _ledger_records(result: ScanResult, ids: set[str]) -> list[SourceRecord]:
+    if not result.ledger_path.exists():
+        return []
+    out = []
+    for line in result.ledger_path.read_text(encoding="utf-8").splitlines():
+        rec = json.loads(line)
+        if rec["record_id"] in ids:
+            out.append(SourceRecord.model_validate(rec))
+    return out
+
+
+def dossier_for(result: ScanResult, r: EntityResult):
+    """The written dossier for leads; an in-memory preview (no evidence archive) for everyone else."""
+    if r.dossier:
+        return r.dossier
+    synth = Synthesizer(high_priority_threshold=result.scan.threshold)
+    ids = source_record_ids(r.entity, r.enrichment, r.score)
+    return synth.build_dossier(r.entity, r.enrichment, r.score, result.context, _ledger_records(result, ids), result.scan, [])
+
+
+def export_buttons(result: ScanResult, r: EntityResult, key: str) -> None:
+    if r.dossier and r.md_path and r.json_path and r.evidence_path:
+        d = r.dossier
+        c1, c2, c3, c4 = st.columns(4)
+        c1.download_button("Markdown briefing", r.md_path.read_bytes(), file_name=f"{d.dossier_id}.md", mime="text/markdown",
+                           key=f"{key}-md", width="stretch")
+        c2.download_button("JSON dossier", r.json_path.read_bytes(), file_name=f"{d.dossier_id}.json", mime="application/json",
+                           key=f"{key}-json", width="stretch")
+        c3.download_button("Provenance (JSON)", (r.evidence_path / "provenance.json").read_bytes(),
+                           file_name=f"{d.dossier_id}_provenance.json", mime="application/json", key=f"{key}-prov", width="stretch")
+        c4.download_button("Evidence archive (.zip)", zip_dir(r.evidence_path), file_name=f"{d.dossier_id}_evidence.zip",
+                           mime="application/zip", key=f"{key}-zip", width="stretch")
+        st.caption(f"Archive root hash (SHA-256 of SHA256SUMS): `{r.evidence_root_sha256}`")
+    else:
+        preview = Synthesizer(high_priority_threshold=result.scan.threshold).render_markdown(dossier_for(result, r))
+        st.download_button("Briefing preview (below threshold, no evidence archive)", preview.encode(),
+                           file_name=f"preview_{r.entity.entity_key.replace(':', '_')}.md", mime="text/markdown", key=f"{key}-preview")
+
+
+def inspector_panel(result: ScanResult, r: EntityResult, key: str, full: bool = False) -> None:
+    e, enr, s = r.entity, r.enrichment, r.score
+    if full:
+        c1, c2 = st.columns([1.15, 1])
+        with c1:
+            lead_card(r, 76)
+            npi = enr.npi.best_match
+            sf = enr.strike_force
+            kv = [("UEI / CAGE", f"{e.uei or 'n/a'} / {e.cage or 'n/a'}"),
+                  ("Organizational NPI", f"{npi.npi} ({npi.status})" if npi else ("none matched" if enr.npi.performed else "not checked")),
+                  ("Total awarded", f"${e.total_awarded:,.2f} · {len(e.awards)} award(s)"),
+                  ("Strike Force district", (sf.district or "outside preset districts") if sf else "no preset"),
+                  ("County / tract", f"{enr.geocode.county_name or 'n/a'} / {enr.geocode.census_tract or 'n/a'}"),
+                  ("Formation date", f"{e.formation_date or 'unknown'}"),
+                  ("People on record", "; ".join(o.name for o in e.officers) or "none published"),
+                  ("Land use (OSM)", enr.land_use.classification.value),
+                  ("LEIE", f"{len(enr.leie.matches)} candidate(s)" if enr.leie.performed else "not screened")]
+            card('<div class="sc-section">Identity</div><div class="sc-kv">' + "".join(f"<div>{esc(k)}</div><div>{esc(v)}</div>" for k, v in kv) + "</div>")
+        with c2:
+            if enr.geocode.matched and enr.geocode.latitude is not None:
+                import pandas as pd
+
+                st.map(pd.DataFrame({"lat": [enr.geocode.latitude], "lon": [enr.geocode.longitude]}), zoom=15, size=18, height=300)
+                st.caption(f"Census match: {enr.geocode.matched_address} ({enr.geocode.latitude:.5f}, {enr.geocode.longitude:.5f})")
+            else:
+                empty_state("⌖", "Address not geocoded", enr.geocode.error or "The Census Geocoder returned no match for the address of record.")
+
+    st.markdown('<div class="sc-section">Deterministic score breakdown</div>', unsafe_allow_html=True)
+    st.dataframe([{"Rule": ev.rule_id, "Indicator": ev.title, "Status": ev.status.value.replace("_", " "), "Weight": ev.weight,
+                   "Points": ev.points_awarded, "Rationale": ev.rationale} for ev in s.evaluations],
+                 width="stretch", hide_index=True, key=f"{key}-rules")
+    st.caption(f"`{s.formula}`")
+
+    cap = enr.capacity
+    st.markdown('<div class="sc-section">Mathematical breakdown</div>', unsafe_allow_html=True)
+    if cap.performed:
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Implied daily beneficiaries", f"{cap.estimated_daily_beneficiaries:,.1f}")
+        m2.metric("Licensed capacity" if cap.capacity_basis == "state_license" else "Facility-type ceiling", f"{cap.licensed_capacity}")
+        m3.metric("Ratio", f"{cap.capacity_ratio:.2f}x", delta=f"threshold {cap.ratio_threshold}x", delta_color="off")
+        st.code(cap.formula, language=None)
+        st.caption(f"{cap.benchmark_label}. {cap.benchmark_citation}")
+    else:
+        st.caption(cap.reason_not_performed or "Not computed.")
+
+    d = dossier_for(result, r)
+    with st.expander("Raw API payloads (chain of custody)"):
+        for rec in d.sources:
+            st.markdown(f"**`{rec.record_id}`** · {rec.source} · `{rec.method} {rec.url}` · {rec.retrieved_at:%Y-%m-%d %H:%M:%S} UTC · "
+                        f"SHA-256 `{(rec.response_sha256 or '')[:16]}…`")
+            st.json(rec.raw_snippet if rec.raw_snippet is not None else {}, expanded=False)
+
+    if full:
+        with st.expander("Physical site verification"):
+            for sig in enr.land_use.signals:
+                st.write(f"- {sig}")
+            if enr.vision.assessment and enr.vision.imagery:
+                a, im = enr.vision.assessment, enr.vision.imagery
+                st.write(f"**Vision ({enr.vision.model})**: `{a.category.value}`, confidence {a.confidence:.2f}. "
+                         f"Markers: {', '.join(a.physical_markers) or 'none'}")
+                st.caption(f"{im.provider} {im.image_id} · captured {im.captured_at} · {im.license_note}")
+            else:
+                st.caption(f"Vision check: {enr.vision.error or 'not run'}")
+        with st.expander("Network: shared addresses and officers"):
+            summary = result.context.graph.summary(e.entity_key) if result.context else None
+            if summary and (len(summary.component_entities) > 1 or summary.shared_people):
+                st.graphviz_chart(summary.dot or "graph {}", width="stretch")
+                for sa in summary.shared_addresses:
+                    st.write(f"**Shared address** {sa['address']}: {'; '.join(sa['entities'])}")
+                for sp in summary.shared_people:
+                    st.write(f"**Shared person** {sp['person']}: {'; '.join(sp['entities'])}")
+            else:
+                st.caption("This recipient shares no address or officer with another awardee in the scan.")
+        with st.expander("2-minute physical verification checklist", expanded=True):
+            from scrimmy.synthesizer import QUICK_PHYSICAL_CHECKLIST
+
+            for i, item in enumerate(QUICK_PHYSICAL_CHECKLIST):
+                st.checkbox(item, key=f"{key}-quick-{i}")
+        with st.expander("Full ground-truthing checklist"):
+            for i, item in enumerate(d.ground_truthing_checklist):
+                st.checkbox(item, key=f"{key}-chk-{i}")
+            st.caption("Follow docs/FIELD_INVESTIGATOR_SOP.md. Public records and public right-of-way observation only.")
+
+    st.markdown('<div class="sc-section">Export</div>', unsafe_allow_html=True)
+    export_buttons(result, r, key)
 
 
 # --------------------------------------------------------------------------- #
@@ -327,11 +517,17 @@ def run_scan(opts: ScanOptions, llm: str) -> None:
 def metrics(result: ScanResult) -> None:
     top = max((r.score.score for r in result.results), default=0)
     cols = st.columns(4)
-    values = [("Live awards scanned", f"{result.awards_scanned:,}"), ("Recipients screened", f"{len(result.results):,}"),
-              ("High-priority leads", f"{len(result.leads):,}"), ("Highest score", f"{top}")]
+    values = [("Awards scanned", f"{result.awards_scanned:,}"), ("Recipients screened", f"{len(result.results):,}"),
+              ("Anomalies flagged", f"{len(result.leads):,}"), ("Highest discrepancy score", f"{top}")]
     for col, (label, value) in zip(cols, values, strict=True):
         with col:
             card(f'<div class="sc-metric-label">{label}</div><div class="sc-metric-value">{value}</div>')
+
+
+def _goto_inspector(entity_key: str) -> None:
+    # Runs as a callback (before the rerun), which is when Streamlit allows widget state to be set.
+    st.session_state["selected"] = entity_key
+    st.session_state["view_ctl"] = "Lead Inspector"
 
 
 def view_scanner(result: ScanResult) -> None:
@@ -343,165 +539,76 @@ def view_scanner(result: ScanResult) -> None:
         if result.failed_groups:
             empty_state("⚠︎", "Live data unavailable", "Every USASpending request failed. Check network access to api.usaspending.gov.")
         else:
-            empty_state("◎", "No awards matched these filters", "Try another state, fiscal year or a lower award floor.")
+            empty_state("◎", "No awards matched these filters", "Try another preset, fiscal year or a lower award floor.")
         return
-    leads = result.leads
     show_all = st.toggle("Show recipients below threshold", value=False)
-    rows = result.results if show_all else leads
+    rows = result.results if show_all else result.leads
     if not rows:
         empty_state("✓", "No anomalies found matching current threshold",
                     f"{len(result.results)} recipients were screened against live records. None scored {result.scan.threshold} or higher.")
         return
-    st.markdown(f'<div class="sc-section">{"All recipients" if show_all else "High-priority forensic leads"}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="sc-section">{"All recipients" if show_all else "Anomalies flagged"}</div>', unsafe_allow_html=True)
     for r in rows:
-        e = r.entity
-        card(f'<div class="sc-lead">{ring(r.score.score)}<div class="sc-lead-main"><div class="sc-lead-name">{esc(e.name)}</div>'
-             f'<div class="sc-lead-meta">{esc(e.address.one_line or "No address published")} · UEI {esc(e.uei or "n/a")} · '
-             f'{len(e.awards)} award{"s" if len(e.awards) != 1 else ""}</div><div>{pills(r)}</div></div>'
-             f'<div><div class="sc-amount">{money(e.total_awarded)}</div><div class="sc-amount-sub">awarded in scope</div></div></div>')
-        st.button("Inspect", key=f"inspect-{e.entity_key}", on_click=_goto_inspector, args=(e.entity_key,))
-
-
-def _goto_inspector(entity_key: str) -> None:
-    # Runs as a callback (before the rerun), which is when Streamlit allows widget state to be set.
-    st.session_state["selected"] = entity_key
-    st.session_state["view_ctl"] = "Target Inspector"
-
-
-def _selected(result: ScanResult):
-    keys = [r.entity.entity_key for r in result.results]
-    if not keys:
-        return None
-    current = st.session_state.get("selected")
-    idx = keys.index(current) if current in keys else 0
-    by_key = {r.entity.entity_key: r for r in result.results}
-    choice = st.selectbox("Recipient", keys, index=idx,
-                          format_func=lambda k: f"{by_key[k].score.score:>3} · {by_key[k].entity.name}")
-    st.session_state["selected"] = choice
-    return by_key[choice]
-
-
-def _dossier_for(result: ScanResult, r):
-    if r.dossier:
-        return r.dossier
-    synth = Synthesizer(high_priority_threshold=result.scan.threshold)
-    ids = Pipeline.source_ids(r.entity, r.enrichment, r.score)
-    ledger_records = []
-    if result.ledger_path.exists():
-        for line in result.ledger_path.read_text(encoding="utf-8").splitlines():
-            rec = json.loads(line)
-            if rec["record_id"] in ids:
-                ledger_records.append(rec)
-    return synth.build_dossier(r.entity, r.enrichment, r.score, result.context, [SourceRecord.model_validate(x) for x in ledger_records],
-                               result.scan, [])
+        lead_card(r)
+        with st.expander(f"Inspect {r.entity.name}"):
+            inspector_panel(result, r, key=f"scan-{r.entity.entity_key}")
+            st.button("Open in Lead Inspector", key=f"open-{r.entity.entity_key}", on_click=_goto_inspector, args=(r.entity.entity_key,))
 
 
 def view_inspector(result: ScanResult) -> None:
-    r = _selected(result)
-    if r is None:
-        empty_state("◎", "Nothing to inspect", "Run a live scan first.")
+    if not result.results:
+        empty_state("◎", "Nothing to inspect", "The scan returned no recipients.")
         return
-    e, enr, s = r.entity, r.enrichment, r.score
-    c1, c2 = st.columns([1.15, 1])
-    with c1:
-        card(f'<div class="sc-lead">{ring(s.score, 76)}<div class="sc-lead-main"><div class="sc-lead-name" style="font-size:21px">{esc(e.name)}</div>'
-             f'<div class="sc-lead-meta">{esc(e.address.one_line)}</div><div>{pills(r)}</div></div></div>')
-        kv = [("UEI / CAGE", f"{e.uei or 'n/a'} / {e.cage or 'n/a'}"),
-              ("Organizational NPI", f"{enr.npi.best_match.npi} ({enr.npi.best_match.status})" if enr.npi.best_match else ("none matched" if enr.npi.performed else "not checked")),
-              ("Total awarded", f"${e.total_awarded:,.2f} · {len(e.awards)} award(s)"),
-              ("Formation date", f"{e.formation_date or 'unknown'}"),
-              ("People on record", "; ".join(o.name for o in e.officers) or "none published"),
-              ("Land use (OSM)", enr.land_use.classification.value),
-              ("LEIE", f"{len(enr.leie.matches)} candidate(s)" if enr.leie.performed else "not screened")]
-        card('<div class="sc-section">Identity</div><div class="sc-kv">' + "".join(f"<div>{esc(k)}</div><div>{esc(v)}</div>" for k, v in kv) + "</div>")
-    with c2:
-        if enr.geocode.matched and enr.geocode.latitude is not None:
-            import pandas as pd
-
-            st.map(pd.DataFrame({"lat": [enr.geocode.latitude], "lon": [enr.geocode.longitude]}), zoom=15, size=18, height=270)
-            st.caption(f"Census match: {enr.geocode.matched_address} ({enr.geocode.latitude:.5f}, {enr.geocode.longitude:.5f})")
-        else:
-            empty_state("⌖", "Address not geocoded", enr.geocode.error or "The Census Geocoder returned no match for the address of record.")
-
-    st.markdown('<div class="sc-section">Deterministic score breakdown</div>', unsafe_allow_html=True)
-    st.dataframe([{"Rule": ev.rule_id, "Indicator": ev.title, "Status": ev.status.value.replace("_", " "), "Weight": ev.weight,
-                   "Points": ev.points_awarded, "Rationale": ev.rationale} for ev in s.evaluations],
-                 width="stretch", hide_index=True)
-    st.caption(f"`{s.formula}`")
-
-    cap = enr.capacity
-    with st.expander("Disbursement-to-capacity arithmetic", expanded=cap.performed):
-        if cap.performed:
-            m1, m2, m3 = st.columns(3)
-            m1.metric("Implied daily beneficiaries", f"{cap.estimated_daily_beneficiaries:,.1f}")
-            m2.metric("Licensed capacity", f"{cap.licensed_capacity}")
-            m3.metric("Ratio", f"{cap.capacity_ratio:.2f}x", delta=f"threshold {cap.ratio_threshold}x", delta_color="off")
-            st.code(cap.formula, language=None)
-            st.caption(f"{cap.benchmark_label}. {cap.benchmark_citation}")
-        else:
-            st.write(cap.reason_not_performed or "Not computed.")
-
-    with st.expander("Physical site verification"):
-        for sig in enr.land_use.signals:
-            st.write(f"- {sig}")
-        if enr.vision.assessment and enr.vision.imagery:
-            a, im = enr.vision.assessment, enr.vision.imagery
-            st.write(f"**Vision ({enr.vision.model})**: `{a.category.value}`, confidence {a.confidence:.2f}. Markers: {', '.join(a.physical_markers) or 'none'}")
-            st.caption(f"{im.provider} {im.image_id} · captured {im.captured_at} · {im.license_note}")
-        else:
-            st.caption(f"Vision check: {enr.vision.error or 'not run'}")
-
-    d = _dossier_for(result, r)
-    with st.expander("Raw API payloads (chain of custody)"):
-        for rec in d.sources:
-            st.markdown(f"**`{rec.record_id}`** · {rec.source} · `{rec.method} {rec.url}` · {rec.retrieved_at:%Y-%m-%d %H:%M:%S} UTC · "
-                        f"SHA-256 `{(rec.response_sha256 or '')[:16]}…`")
-            st.json(rec.raw_snippet if rec.raw_snippet is not None else {}, expanded=False)
-
-    with st.expander("Human verification checklist", expanded=True):
-        for i, item in enumerate(d.ground_truthing_checklist):
-            st.checkbox(item, key=f"chk-{e.entity_key}-{i}")
-        st.caption("Work through docs/FIELD_INVESTIGATOR_SOP.md. Public records and public right-of-way observation only.")
+    keys = [r.entity.entity_key for r in result.results]
+    by_key = {r.entity.entity_key: r for r in result.results}
+    current = st.session_state.get("selected")
+    choice = st.selectbox("Recipient", keys, index=keys.index(current) if current in keys else 0,
+                          format_func=lambda k: f"{by_key[k].score.score:>3} · {by_key[k].entity.name}")
+    st.session_state["selected"] = choice
+    inspector_panel(result, by_key[choice], key=f"insp-{choice}", full=True)
 
 
-def view_network(result: ScanResult) -> None:
-    if not result.context or not result.results:
-        empty_state("◎", "No network to show", "Run a live scan first.")
+def _cell(r: EntityResult, rule_id: str) -> str:
+    ev = next(ev for ev in r.score.evaluations if ev.rule_id == rule_id)
+    if ev.status is RuleStatus.TRIGGERED:
+        return f'<span class="sc-cell {"hit" if ev.points_awarded else "hit-0"}" title="{esc(ev.rationale)}">+{ev.points_awarded}</span>'
+    symbol, cls = {RuleStatus.NOT_TRIGGERED: ("·", "no"), RuleStatus.INSUFFICIENT_DATA: ("?", "insuf"),
+                   RuleStatus.NOT_APPLICABLE: ("–", "na")}[ev.status]
+    return f'<span class="sc-cell {cls}" title="{esc(ev.rationale)}">{symbol}</span>'
+
+
+def view_matrix(result: ScanResult) -> None:
+    if not result.results:
+        empty_state("◎", "No recipients to compare", "Run a live scan with broader filters.")
         return
-    r = _selected(result)
-    summary = result.context.graph.summary(r.entity.entity_key)
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Entities in component", len(summary.component_entities))
-    m2.metric("Shared addresses", len(summary.shared_addresses))
-    m3.metric("Shared people", len(summary.shared_people))
-    if len(summary.component_entities) <= 1 and not summary.shared_people:
-        empty_state("◌", "No shared addresses or people", "This recipient is not linked to any other awardee in the scan.")
-    st.graphviz_chart(summary.dot or "graph {}", width="stretch")
-    for sa in summary.shared_addresses:
-        st.write(f"**Shared address** {sa['address']}: {'; '.join(sa['entities'])}")
-    for sp in summary.shared_people:
-        st.write(f"**Shared person** {sp['person']}: {'; '.join(sp['entities'])}")
+    only_leads = st.toggle("Anomalies only", value=False)
+    rows = result.leads if only_leads else result.results
+    if not rows:
+        empty_state("✓", "No anomalies found matching current threshold", "Turn off 'Anomalies only' to see every screened recipient.")
+        return
+    head = "".join(f"<th>{esc(MATRIX_COLS[rid])}</th>" for rid in ALL_RULES)
+    body = []
+    for r in rows:
+        sf = r.enrichment.strike_force
+        body.append(f'<tr><td><b>{esc(r.entity.name)}</b><div class="sc-district">{esc(sf.district if sf and sf.district else r.entity.address.one_line)}</div></td>'
+                    f'<td>{money(r.entity.total_awarded)}</td>' + "".join(f"<td>{_cell(r, rid)}</td>" for rid in ALL_RULES)
+                    + f'<td class="sc-score">{r.score.score}</td></tr>')
+    card(f'<div class="sc-scroll"><table class="sc-matrix"><thead><tr><th>Recipient</th><th>Awarded</th>{head}<th>Score</th></tr></thead>'
+         f'<tbody>{"".join(body)}</tbody></table></div>'
+         '<div class="sc-legend"><span><b>+n</b> triggered (points)</span><span><b>·</b> not triggered</span>'
+         '<span><b>?</b> insufficient data</span><span><b>–</b> not applicable</span><span>Hover a cell for the rationale.</span></div>')
 
 
 def view_export(result: ScanResult) -> None:
     if not result.leads:
-        empty_state("✓", "No anomalies found matching current threshold", "Only High-Priority Forensic Leads are exported with evidence archives.")
+        empty_state("✓", "No anomalies found matching current threshold", "Only flagged leads are exported with evidence archives.")
         return
     for r in result.leads:
-        d = r.dossier
-        card(f'<div class="sc-lead">{ring(r.score.score)}<div class="sc-lead-main"><div class="sc-lead-name">{esc(r.entity.name)}</div>'
-             f'<div class="sc-lead-meta">{esc(d.dossier_id)} · suggested routing: {esc(d.track.primary if d.track else "n/a")} · '
-             f'{len(d.evidence_manifest)} archived artifacts</div></div></div>')
-        c1, c2, c3 = st.columns(3)
-        c1.download_button("Markdown briefing", r.md_path.read_bytes(), file_name=f"{d.dossier_id}.md", mime="text/markdown",
-                           key=f"md-{d.dossier_id}", width="stretch")
-        c2.download_button("JSON provenance", r.json_path.read_bytes(), file_name=f"{d.dossier_id}.json", mime="application/json",
-                           key=f"json-{d.dossier_id}", width="stretch")
-        c3.download_button("Evidence archive (.zip)", zip_dir(r.evidence_path), file_name=f"{d.dossier_id}_evidence.zip",
-                           mime="application/zip", key=f"zip-{d.dossier_id}", width="stretch")
-    st.markdown('<div class="sc-notice">Each archive contains the raw API responses, ledger, manifest, dossier and a SHA256SUMS file '
-                '(<code>sha256sum -c SHA256SUMS</code>). Exports are working papers for counsel and investigators. Verify every '
-                'indicator before any filing.</div>', unsafe_allow_html=True)
+        lead_card(r)
+        export_buttons(result, r, key=f"exp-{r.entity.entity_key}")
+    st.markdown('<div class="sc-notice">Each archive contains the raw API responses, ledger, provenance.json, the dossier and a '
+                'SHA256SUMS file (<code>sha256sum -c SHA256SUMS</code>). Exports are working papers for intake agents and '
+                'whistleblower counsel. Verify every indicator before any filing.</div>', unsafe_allow_html=True)
 
 
 # --------------------------------------------------------------------------- #
@@ -511,23 +618,22 @@ def view_export(result: ScanResult) -> None:
 
 def main() -> None:
     st.markdown(CSS, unsafe_allow_html=True)
+    st.markdown(EXTRA_CSS, unsafe_allow_html=True)
     opts, llm, run = sidebar()
-    st.markdown('<div class="sc-title">Forensic Console</div><div class="sc-sub">Live screening of federal award recipients against '
-                'USASpending, NPPES, Census, OpenStreetMap and HHS-OIG records. Scores are deterministic. Every lead is unverified '
-                'until a person checks it.</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sc-title">Forensic Workstation</div><div class="sc-sub">Live screening of federal award recipients in '
+                'DOJ Health Care Fraud Strike Force regions against USASpending, NPPES, Census, OpenStreetMap and HHS-OIG records. '
+                'Scores are deterministic. Every lead is unverified until a person checks it.</div>', unsafe_allow_html=True)
     if run:
         run_scan(opts, llm)
-    views = ["Live Scanner", "Target Inspector", "Network Map", "Dossier Export"]
     if "view_ctl" not in st.session_state:
-        st.session_state["view_ctl"] = views[0]
-    view = st.segmented_control("View", views, label_visibility="collapsed", key="view_ctl")
-    st.session_state["view"] = view or views[0]
+        st.session_state["view_ctl"] = VIEWS[0]
+    view = st.segmented_control("View", VIEWS, label_visibility="collapsed", key="view_ctl") or VIEWS[0]
     result: ScanResult | None = st.session_state.get("result")
     if result is None:
-        empty_state("◎", "Ready to scan", "Choose verticals, a state and an award floor in the sidebar, then run a live scan.")
+        empty_state("◎", "Ready to scan", "Pick a Strike Force preset, verticals and an award floor in the sidebar, then run a live scan.")
         return
-    {"Live Scanner": view_scanner, "Target Inspector": view_inspector, "Network Map": view_network,
-     "Dossier Export": view_export}[st.session_state["view"]](result)
+    {"Strike Force Scanner": view_scanner, "Lead Inspector": view_inspector, "Anomaly Matrix": view_matrix,
+     "Dossier Export": view_export}[view](result)
 
 
 main()

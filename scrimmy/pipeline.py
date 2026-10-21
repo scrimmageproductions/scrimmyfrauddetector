@@ -35,7 +35,7 @@ from .clients import (
     USASpendingClient,
 )
 from .enrichment import CrossReferencer, EnrichmentConfig, OperatorFormationIndex
-from .evidence import EvidenceVault
+from .dossier import DossierExporter, source_record_ids
 from .ingestion import TargetCollector
 from .leie_matcher import LEIEMatcher
 from .licensing import LicenseLookup, LicenseSource
@@ -49,6 +49,150 @@ from .vision_verifier import VisionModel, VisionVerifier
 log = logging.getLogger(__name__)
 
 ProgressFn = Callable[[str, float], None]
+
+
+# --------------------------------------------------------------------------- #
+# DOJ Health Care Fraud Strike Force targeting presets
+# --------------------------------------------------------------------------- #
+# Operator presets modelled on the regions where DOJ's Health Care Fraud Strike Forces
+# operate. They are targeting conveniences, not official DOJ designations. Each lists
+# the federal judicial districts and the counties (state + 3-digit county FIPS) whose
+# recipients are pulled from USASpending. A whole-state entry covers states that form
+# a single judicial district (AZ, NV, NJ).
+
+DEFAULT_TARGET_NAICS = ["624410", "624210", "621610", "623110", "624120"]
+
+
+@dataclass(frozen=True)
+class FocusCounty:
+    state: str
+    county_fips: str  # 3-digit county FIPS
+    name: str
+    district: str
+
+    @property
+    def geoid(self) -> str:
+        return f"{STATE_FIPS[self.state]}{self.county_fips}"
+
+
+@dataclass(frozen=True)
+class StrikeForcePreset:
+    key: str
+    label: str
+    metros: tuple[str, ...]
+    districts: tuple[str, ...]
+    counties: tuple[FocusCounty, ...] = ()
+    whole_states: dict[str, str] = field(default_factory=dict)  # state -> single district covering it
+    naics_codes: tuple[str, ...] = tuple(DEFAULT_TARGET_NAICS)
+
+    @property
+    def states(self) -> list[str]:
+        return sorted({c.state for c in self.counties} | set(self.whole_states))
+
+    def location_filters(self) -> list[dict[str, str]]:
+        """USASpending recipient_locations objects for this preset."""
+        locs = [{"country": "USA", "state": c.state, "county": c.county_fips} for c in self.counties]
+        return locs + [{"country": "USA", "state": st} for st in sorted(self.whole_states)]
+
+
+STATE_FIPS = {"FL": "12", "TX": "48", "CA": "06", "AZ": "04", "NV": "32", "MI": "26", "IL": "17", "NY": "36",
+              "NJ": "34", "PA": "42", "LA": "22", "MS": "28"}
+
+_SDFL, _MDFL = "Southern District of Florida", "Middle District of Florida"
+_SDTX, _NDTX = "Southern District of Texas", "Northern District of Texas"
+_CDCA, _NDCA = "Central District of California", "Northern District of California"
+_EDMI, _NDIL = "Eastern District of Michigan", "Northern District of Illinois"
+_EDNY, _EDPA = "Eastern District of New York", "Eastern District of Pennsylvania"
+_EDLA, _MDLA, _SDMS = "Eastern District of Louisiana", "Middle District of Louisiana", "Southern District of Mississippi"
+
+STRIKE_FORCE_PRESETS: dict[str, StrikeForcePreset] = {
+    "florida": StrikeForcePreset(
+        key="florida", label="Florida Strike Force", metros=("Miami-Dade", "Broward", "Tampa Bay"), districts=(_SDFL, _MDFL),
+        counties=(FocusCounty("FL", "086", "Miami-Dade", _SDFL), FocusCounty("FL", "011", "Broward", _SDFL),
+                  FocusCounty("FL", "099", "Palm Beach", _SDFL), FocusCounty("FL", "057", "Hillsborough", _MDFL),
+                  FocusCounty("FL", "103", "Pinellas", _MDFL), FocusCounty("FL", "101", "Pasco", _MDFL)),
+    ),
+    "texas": StrikeForcePreset(
+        key="texas", label="Texas Strike Force", metros=("Houston", "Dallas-Fort Worth", "McAllen"), districts=(_SDTX, _NDTX),
+        counties=(FocusCounty("TX", "201", "Harris", _SDTX), FocusCounty("TX", "157", "Fort Bend", _SDTX),
+                  FocusCounty("TX", "215", "Hidalgo", _SDTX), FocusCounty("TX", "061", "Cameron", _SDTX),
+                  FocusCounty("TX", "113", "Dallas", _NDTX), FocusCounty("TX", "439", "Tarrant", _NDTX),
+                  FocusCounty("TX", "085", "Collin", _NDTX), FocusCounty("TX", "121", "Denton", _NDTX)),
+    ),
+    "west_coast": StrikeForcePreset(
+        key="west_coast", label="West Coast Strike Force", metros=("Los Angeles", "Orange County", "Bay Area", "Phoenix", "Las Vegas"),
+        districts=(_CDCA, _NDCA, "District of Arizona", "District of Nevada"),
+        counties=(FocusCounty("CA", "037", "Los Angeles", _CDCA), FocusCounty("CA", "059", "Orange", _CDCA),
+                  FocusCounty("CA", "065", "Riverside", _CDCA), FocusCounty("CA", "071", "San Bernardino", _CDCA),
+                  FocusCounty("CA", "075", "San Francisco", _NDCA), FocusCounty("CA", "001", "Alameda", _NDCA),
+                  FocusCounty("CA", "085", "Santa Clara", _NDCA), FocusCounty("CA", "081", "San Mateo", _NDCA),
+                  FocusCounty("CA", "013", "Contra Costa", _NDCA)),
+        whole_states={"AZ": "District of Arizona", "NV": "District of Nevada"},
+    ),
+    "midwest": StrikeForcePreset(
+        key="midwest", label="Midwest Strike Force", metros=("Detroit", "Chicago"), districts=(_EDMI, _NDIL),
+        counties=(FocusCounty("MI", "163", "Wayne", _EDMI), FocusCounty("MI", "125", "Oakland", _EDMI),
+                  FocusCounty("MI", "099", "Macomb", _EDMI), FocusCounty("IL", "031", "Cook", _NDIL),
+                  FocusCounty("IL", "043", "DuPage", _NDIL), FocusCounty("IL", "097", "Lake", _NDIL),
+                  FocusCounty("IL", "197", "Will", _NDIL)),
+    ),
+    "northeast": StrikeForcePreset(
+        key="northeast", label="Northeast Strike Force", metros=("Brooklyn", "Queens", "Newark", "Philadelphia"),
+        districts=(_EDNY, "District of New Jersey", _EDPA),
+        counties=(FocusCounty("NY", "047", "Kings (Brooklyn)", _EDNY), FocusCounty("NY", "081", "Queens", _EDNY),
+                  FocusCounty("NY", "085", "Richmond (Staten Island)", _EDNY), FocusCounty("NY", "059", "Nassau", _EDNY),
+                  FocusCounty("NY", "103", "Suffolk", _EDNY), FocusCounty("PA", "101", "Philadelphia", _EDPA),
+                  FocusCounty("PA", "091", "Montgomery", _EDPA), FocusCounty("PA", "045", "Delaware", _EDPA),
+                  FocusCounty("PA", "017", "Bucks", _EDPA)),
+        whole_states={"NJ": "District of New Jersey"},
+    ),
+    "gulf_coast": StrikeForcePreset(
+        key="gulf_coast", label="Gulf Coast Strike Force", metros=("New Orleans", "Baton Rouge", "Biloxi"),
+        districts=(_EDLA, _MDLA, _SDMS),
+        counties=(FocusCounty("LA", "071", "Orleans Parish", _EDLA), FocusCounty("LA", "051", "Jefferson Parish", _EDLA),
+                  FocusCounty("LA", "103", "St. Tammany Parish", _EDLA),
+                  # Baton Rouge (East Baton Rouge Parish) lies in the Middle District of Louisiana, not the Eastern.
+                  FocusCounty("LA", "033", "East Baton Rouge Parish", _MDLA),
+                  FocusCounty("MS", "047", "Harrison (Biloxi)", _SDMS), FocusCounty("MS", "045", "Hancock", _SDMS),
+                  FocusCounty("MS", "059", "Jackson", _SDMS)),
+    ),
+}
+CUSTOM_PRESET_KEY = "custom"
+
+
+def us_attorney_office(district: str) -> str:
+    return f"U.S. Attorney's Office, {district}"
+
+
+def assign_strike_force(entity: AwardeeEntity, enrichment: EnrichmentData, preset: StrikeForcePreset | None) -> None:
+    """Record which preset district (if any) a recipient falls in, from Census county FIPS or the address of record."""
+    if preset is None:
+        return
+    from .models import StrikeForceTarget
+
+    geo = enrichment.geocode
+    state = (entity.address.state or "").upper()
+    county = None
+    basis = ""
+    if geo.county_fips:
+        county = next((c for c in preset.counties if c.geoid == geo.county_fips), None)
+        basis = f"Census county FIPS {geo.county_fips}"
+    if county is None and entity.address.county:
+        name = entity.address.county.upper().replace(" COUNTY", "").replace(" PARISH", "")
+        county = next((c for c in preset.counties if c.state == state and c.name.upper().split(" (")[0].replace(" PARISH", "") == name), None)
+        if county and not basis:
+            basis = f"USASpending county name '{entity.address.county}'"
+    district = county.district if county else preset.whole_states.get(state)
+    if district and not county:
+        basis = f"state {state} is a single judicial district"
+    enrichment.strike_force = StrikeForceTarget(
+        hub_key=preset.key, hub_label=preset.label, in_focus_area=bool(district), district=district,
+        us_attorney_office=us_attorney_office(district) if district else None,
+        county_name=county.name if county else (geo.county_name or entity.address.county),
+        county_fips=geo.county_fips,
+        basis=basis if district else (f"{basis + ': ' if basis else ''}county not among the preset's focus counties; "
+                                      "verify the district at uscourts.gov"),
+    )
 
 
 @dataclass
@@ -77,6 +221,8 @@ class PipelineSettings:
     capacity: CapacityEngine | None = field(default_factory=CapacityEngine)
     vision: VisionSettings | None = None
     overpass_url: str | None = None
+    strike_force: StrikeForcePreset | None = None
+    nationwide: bool = False
     timeout: float = 30.0
     max_attempts: int = 5
 
@@ -90,6 +236,7 @@ class EntityResult:
     json_path: Path | None = None
     md_path: Path | None = None
     evidence_path: Path | None = None
+    evidence_root_sha256: str | None = None
 
 
 @dataclass
@@ -144,7 +291,7 @@ class Pipeline:
         )
         self.scorer = DeterministicScorer(settings.scoring, source_lookup=self.ledger.get)
         self.synth = Synthesizer(backend, high_priority_threshold=settings.scoring.high_priority_threshold)
-        self.vault = EvidenceVault(settings.evidence_dir or settings.output_dir / "evidence")
+        self.exporter = DossierExporter(self.synth, settings.output_dir, settings.evidence_dir)
 
     def close(self) -> None:
         self.http.close()
@@ -158,25 +305,17 @@ class Pipeline:
             naics_codes=f.naics_codes, psc_codes=f.psc_codes, program_numbers=f.program_numbers,
             award_groups=s.award_groups, min_award=f.min_award, max_award=f.max_award,
             start_date=f.start_date, end_date=f.end_date, max_awards=s.max_awards, threshold=s.threshold,
-            scoring_profile=s.scoring.profile, tool_version=__version__,
+            scoring_profile=s.scoring.profile, strike_force=s.strike_force.key if s.strike_force else None,
+            nationwide=s.nationwide, tool_version=__version__,
         )
 
-    @staticmethod
-    def source_ids(entity: AwardeeEntity, enrichment: EnrichmentData, score: ScoreBreakdown) -> set[str]:
-        ids = set(entity.source_record_ids) | set(entity.formation_source_record_ids)
-        for a in entity.awards:
-            ids |= set(a.source_record_ids)
-        for o in entity.officers:
-            ids |= set(o.source_record_ids)
-        for part in (enrichment.npi, enrichment.geocode, enrichment.land_use, enrichment.leie, enrichment.license):
-            ids |= set(part.source_record_ids)
-        if enrichment.license.best_match:
-            ids |= set(enrichment.license.best_match.source_record_ids)
-        if enrichment.vision.imagery:
-            ids |= set(enrichment.vision.imagery.source_record_ids)
-        for ev in score.evaluations:
-            ids |= {item.source_record_id for item in ev.evidence if item.source_record_id}
-        return ids
+    source_ids = staticmethod(source_record_ids)
+
+    def enrich_entity(self, entity: AwardeeEntity) -> EnrichmentData:
+        """Cross-reference one (hydrated) recipient and place it relative to the Strike Force preset."""
+        enrichment = self.cross.enrich(entity)
+        assign_strike_force(entity, enrichment, self.settings.strike_force)
+        return enrichment
 
     def run(self) -> ScanResult:
         s = self.settings
@@ -189,7 +328,7 @@ class Pipeline:
         pairs = []
         for i, entity in enumerate(entities, 1):
             self.progress(f"Cross-referencing {entity.name} ({i}/{len(entities)})", 0.10 + 0.65 * i / max(1, len(entities)))
-            pairs.append((entity, self.cross.enrich(entity)))
+            pairs.append((entity, self.enrich_entity(entity)))
 
         self.progress("Building entity graph and scoring", 0.78)
         context = ScoringContext.build(pairs, s.scoring.affiliation_name_similarity, s.vertical.key if s.vertical else None)
@@ -212,14 +351,9 @@ class Pipeline:
         for r in results:
             if r.score.score < s.threshold:
                 continue
-            ids = self.source_ids(r.entity, r.enrichment, r.score)
-            dossier = self.synth.build_dossier(r.entity, r.enrichment, r.score, context, self.ledger.subset(ids), scan, vertical_caveats)
-            dossier.evidence_manifest = self.vault.archive(dossier.dossier_id, ids, self.ledger)
-            dossier.evidence_dir = str(self.vault.lead_dir(dossier.dossier_id))
-            r.dossier = dossier
-            r.json_path, r.md_path = self.synth.write(dossier, s.output_dir)
-            self.vault.finalize(dossier.dossier_id, {"dossier.json": r.json_path.read_bytes(), "dossier.md": r.md_path.read_bytes()})
-            r.evidence_path = self.vault.lead_dir(dossier.dossier_id)
+            out = self.exporter.export(r.entity, r.enrichment, r.score, context, self.ledger, scan, vertical_caveats)
+            r.dossier, r.json_path, r.md_path = out.dossier, out.json_path, out.md_path
+            r.evidence_path, r.evidence_root_sha256 = out.evidence_dir, out.root_sha256
             log.info("lead: %s (score %d) -> %s", r.entity.name, r.score.score, r.md_path)
 
         manifest_path, ledger_path = self._write_manifest(scan, results)
@@ -253,6 +387,8 @@ class Pipeline:
                     "dossier_json": r.json_path.name if r.json_path else None,
                     "dossier_md": r.md_path.name if r.md_path else None,
                     "evidence_dir": str(r.evidence_path) if r.evidence_path else None,
+                    "evidence_root_sha256": r.evidence_root_sha256,
+                    "strike_force_district": r.enrichment.strike_force.district if r.enrichment.strike_force else None,
                 }
                 for r in results
             ],

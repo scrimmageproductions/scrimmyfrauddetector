@@ -349,7 +349,9 @@ ASSISTANCE_GROUPS = {"grants", "direct_payments", "loans", "other"}
 @dataclass
 class AwardSearchFilters:
     state: str | None = None
+    states: list[str] = field(default_factory=list)
     zip_codes: list[str] = field(default_factory=list)
+    locations: list[dict[str, str]] = field(default_factory=list)  # explicit USASpending location objects (state + county FIPS)
     naics_codes: list[str] = field(default_factory=list)
     psc_codes: list[str] = field(default_factory=list)
     program_numbers: list[str] = field(default_factory=list)
@@ -364,10 +366,14 @@ class AwardSearchFilters:
         start = self.start_date or date(2007, 10, 1)
         end = self.end_date or date.today()
         f["time_period"] = [{"start_date": start.isoformat(), "end_date": end.isoformat()}]
-        if self.zip_codes:
+        # Precedence: explicit locations (Strike Force counties) > ZIP codes > states. None of them = nationwide.
+        if self.locations:
+            f["recipient_locations"] = self.locations
+        elif self.zip_codes:
             f["recipient_locations"] = [{"country": "USA", "zip": z} for z in self.zip_codes]
-        elif self.state:
-            f["recipient_locations"] = [{"country": "USA", "state": self.state.upper()}]
+        elif self.state or self.states:
+            states = sorted({st.upper() for st in [*self.states, *([self.state] if self.state else [])]})
+            f["recipient_locations"] = [{"country": "USA", "state": st} for st in states]
         if self.min_award is not None or self.max_award is not None:
             bound: dict[str, float] = {}
             if self.min_award is not None:
@@ -468,18 +474,17 @@ class NPPESClient:
 
 class CensusGeocoderClient:
     BASE = "https://geocoding.geo.census.gov/geocoder/locations"
+    GEOGRAPHIES = "https://geocoding.geo.census.gov/geocoder/geographies"
 
-    def __init__(self, http: ResilientHTTP, benchmark: str = "Public_AR_Current"):
+    def __init__(self, http: ResilientHTTP, benchmark: str = "Public_AR_Current", vintage: str = "Current_Current"):
         self.http = http
         self.benchmark = benchmark
+        self.vintage = vintage
 
-    def geocode_components(self, street: str, city: str | None, state: str | None, zip5: str | None) -> tuple[dict, SourceRecord]:
-        params = {"street": street, "city": city, "state": state, "zip": zip5, "benchmark": self.benchmark, "format": "json"}
-        return self.http.request_json("census_geocoder", "GET", f"{self.BASE}/address", params=params)
-
-    def geocode_one_line(self, address: str) -> tuple[dict, SourceRecord]:
-        params = {"address": address, "benchmark": self.benchmark, "format": "json"}
-        return self.http.request_json("census_geocoder", "GET", f"{self.BASE}/onelineaddress", params=params)
+    def geographies_one_line(self, address: str) -> tuple[dict, SourceRecord]:
+        """One-line geocode that also returns county FIPS and census tract (used for judicial-district targeting)."""
+        params = {"address": address, "benchmark": self.benchmark, "vintage": self.vintage, "format": "json"}
+        return self.http.request_json("census_geocoder", "GET", f"{self.GEOGRAPHIES}/onelineaddress", params=params)
 
 
 # --------------------------------------------------------------------------- #

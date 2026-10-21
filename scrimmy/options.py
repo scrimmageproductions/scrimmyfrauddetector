@@ -12,7 +12,7 @@ from .enrichment import EnrichmentConfig, OperatorFormationIndex
 from .leie_matcher import LEIEMatcher
 from .licensing import load_license_sources
 from .math_engine import CapacityEngine
-from .pipeline import PipelineSettings, VisionSettings
+from .pipeline import CUSTOM_PRESET_KEY, STRIKE_FORCE_PRESETS, PipelineSettings, VisionSettings
 from .scorer import ScoringConfig
 from .verticals import PRIORITY_VERTICALS, VERTICALS
 from .vision_verifier import make_vision_model
@@ -28,7 +28,10 @@ def fiscal_year_bounds(fy: int) -> tuple[date, date]:
 @dataclass
 class ScanOptions:
     state: str | None = None
+    states: list[str] = field(default_factory=list)
     zip_codes: list[str] = field(default_factory=list)
+    strike_force: str | None = None  # key of pipeline.STRIKE_FORCE_PRESETS, or "custom"
+    nationwide: bool = False
     vertical: str | None = None
     naics: list[str] = field(default_factory=list)
     psc: list[str] = field(default_factory=list)
@@ -68,8 +71,11 @@ class ScanOptions:
 
     def validate(self) -> list[str]:
         errors = []
-        if not (self.state or self.zip_codes or self.recipient_search):
-            errors.append("provide at least one of state, ZIP code(s) or recipient search to bound the scan")
+        preset = self.strike_force and self.strike_force != CUSTOM_PRESET_KEY
+        if not (self.state or self.states or self.zip_codes or self.recipient_search or preset or self.nationwide):
+            errors.append("provide a Strike Force preset, state(s), ZIP code(s), a recipient search, or choose nationwide to bound the scan")
+        if preset and self.strike_force not in STRIKE_FORCE_PRESETS:
+            errors.append(f"unknown Strike Force preset {self.strike_force!r}; choose from {', '.join(STRIKE_FORCE_PRESETS)} or custom")
         bad = [g for g in self.award_groups if g not in AWARD_GROUPS]
         if bad:
             errors.append(f"unknown award type group(s): {', '.join(bad)}")
@@ -84,7 +90,8 @@ class ScanOptions:
         if vertical:
             naics, psc, programs = vertical.naics_codes, vertical.psc_codes, vertical.program_numbers
         elif not (self.naics or self.psc or self.programs):
-            # Default targeting: the high-risk per-beneficiary reimbursement verticals.
+            # Default targeting: child day care & nutrition, home health and hospice (NAICS 624410, 624210,
+            # 621610, 623110, 624120) plus those verticals' Assistance Listings for grants.
             naics = sorted({c for k in PRIORITY_VERTICALS for c in VERTICALS[k].naics_codes})
             psc, programs = [], sorted({c for k in PRIORITY_VERTICALS for c in VERTICALS[k].program_numbers})
         else:
@@ -92,8 +99,10 @@ class ScanOptions:
         start, end = self.start_date, self.end_date
         if self.fiscal_year:
             start, end = fiscal_year_bounds(self.fiscal_year)
+        preset = STRIKE_FORCE_PRESETS.get(self.strike_force or "")
         filters = AwardSearchFilters(
-            state=self.state, zip_codes=self.zip_codes,
+            state=self.state, states=self.states, zip_codes=self.zip_codes,
+            locations=preset.location_filters() if preset else [],
             naics_codes=sorted(set(naics) | set(self.naics)), psc_codes=sorted(set(psc) | set(self.psc)),
             program_numbers=sorted(set(programs) | set(self.programs)),
             min_award=self.min_award, max_award=self.max_award, start_date=start, end_date=end,
@@ -118,4 +127,5 @@ class ScanOptions:
             license_sources=load_license_sources(self.license_sources) if self.license_sources else [],
             capacity=CapacityEngine(ratio_threshold=self.capacity_ratio).with_rate_overrides(self.unit_rates),
             vision=vision, overpass_url=self.overpass_url, timeout=self.timeout, max_attempts=self.max_retries,
+            strike_force=preset, nationwide=self.nationwide and not (preset or self.state or self.states or self.zip_codes),
         )

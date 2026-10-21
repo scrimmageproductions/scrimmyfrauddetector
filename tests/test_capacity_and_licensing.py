@@ -24,8 +24,19 @@ def lic(capacity):
 
 def test_capacity_formula_is_exact():
     res = CapacityEngine().analyze(entity(), lic(40), None)
-    assert res.performed and res.benchmark_key == "cacfp_child_day"
-    assert res.annualized_disbursement == 1_200_000 and res.estimated_daily_beneficiaries == 571.43 and res.capacity_ratio == 14.286
+    assert res.performed and res.benchmark_key == "child_nutrition_meal" and res.capacity_basis == "state_license"
+    # $1.2M / ($4.50 x 2 meals x 365 days) = 365.30 children/day; / 40 licensed = 9.133x
+    assert res.annualized_disbursement == 1_200_000 and res.estimated_daily_beneficiaries == 365.3 and res.capacity_ratio == 9.133
+
+
+def test_hospice_per_diem_and_type_ceiling():
+    e = entity(amount=153_300_000, program="", name="Example Hospice LLC")
+    e.awards[0].program_numbers = []
+    e.awards[0].naics_code = "623110"
+    res = CapacityEngine().analyze(e, LicenseLookupResult(), None)
+    # $153.3M / ($210 x 1 x 365) = 2,000 patients/day vs 500-patient facility-type ceiling = 4.0x
+    assert res.benchmark_key == "hospice_per_diem" and res.capacity_basis == "facility_type_ceiling"
+    assert res.estimated_daily_beneficiaries == 2000.0 and res.capacity_ratio == 4.0
 
 
 def test_multi_year_awards_are_annualized():
@@ -34,10 +45,11 @@ def test_multi_year_awards_are_annualized():
 
 
 def test_missing_inputs_are_reported():
-    assert "No matched state license" in CapacityEngine().analyze(entity(), LicenseLookupResult(performed=True), None).reason_not_performed
+    no_ceiling = CapacityEngine(use_type_ceiling=False)
+    assert "No matched state license" in no_ceiling.analyze(entity(), LicenseLookupResult(performed=True), None).reason_not_performed
     ccdf = CapacityEngine().analyze(entity(program="93.575"), lic(40), None)
-    assert not ccdf.performed and "--unit-rate ccdf_child_day" in ccdf.reason_not_performed
-    overridden = CapacityEngine().with_rate_overrides({"ccdf_child_day": 50.0}).analyze(entity(program="93.575"), lic(40), None)
+    assert not ccdf.performed and "--unit-rate child_care_subsidy_day" in ccdf.reason_not_performed
+    overridden = CapacityEngine().with_rate_overrides({"child_care_subsidy_day": 50.0}).analyze(entity(program="93.575"), lic(40), None)
     assert overridden.performed and overridden.unit_rate == 50.0
 
 
