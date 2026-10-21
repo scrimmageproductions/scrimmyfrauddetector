@@ -58,16 +58,18 @@ class SourceAPIError(RuntimeError):
 class EvidenceLedger:
     """Thread-safe, append-only store of every SourceRecord captured during a scan."""
 
-    def __init__(self, max_snippet_chars: int = 60_000):
+    def __init__(self, max_snippet_chars: int = 60_000, namespace: str = ""):
         self._records: dict[str, SourceRecord] = {}
         self._raw: dict[str, tuple[bytes, str]] = {}
         self._lock = threading.Lock()
         self._seq = itertools.count(1)
         self.max_snippet_chars = max_snippet_chars
+        # Stateless deployments merge ledgers from many requests; a namespace keeps their IDs unique.
+        self.namespace = f"{namespace}-" if namespace else ""
 
     def new_id(self, method: str, url: str, body: Any) -> str:
         digest = hashlib.sha256(f"{method} {url} {json.dumps(body, sort_keys=True, default=str)}".encode()).hexdigest()[:10]
-        return f"SRC-{next(self._seq):05d}-{digest}"
+        return f"SRC-{self.namespace}{next(self._seq):05d}-{digest}"
 
     def add(self, record: SourceRecord, raw: bytes | None = None, content_type: str = "application/json") -> SourceRecord:
         """Store a record and (optionally) the exact, untruncated response body it was hashed from."""

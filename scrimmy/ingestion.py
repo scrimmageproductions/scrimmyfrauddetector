@@ -74,7 +74,7 @@ class TargetCollector:
 
     # -- search ------------------------------------------------------------ #
 
-    def collect(self, filters: AwardSearchFilters, groups: list[str], max_awards: int) -> list[AwardeeEntity]:
+    def collect(self, filters: AwardSearchFilters, groups: list[str], max_awards: int, hydrate: bool = True) -> list[AwardeeEntity]:
         entities: dict[str, AwardeeEntity] = {}
         per_group = max(1, max_awards // max(1, len(groups)))
         for group in groups:
@@ -85,8 +85,9 @@ class TargetCollector:
                 log.error("Award search failed for group %s: %s", group, exc)
                 self.failed_groups[group] = str(exc)
         log.info("Resolved %d distinct recipients from award search", len(entities))
-        for entity in entities.values():
-            self.hydrate(entity)
+        if hydrate:
+            for entity in entities.values():
+                self.hydrate(entity)
         return list(entities.values())
 
     def _absorb_row(self, entities: dict[str, AwardeeEntity], row: dict[str, Any], group: str, record_id: str) -> None:

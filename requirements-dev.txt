@@ -1,2 +1,4 @@
 -r requirements.txt
+-r streamlit_app/requirements.txt
 pytest==9.1.1
+uvicorn==0.54.0

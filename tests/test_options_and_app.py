@@ -25,7 +25,7 @@ def test_profiles_and_validation():
 def test_app_renders_ready_state_without_network():
     from streamlit.testing.v1 import AppTest
 
-    at = AppTest.from_file(str(Path(__file__).parents[1] / "app.py"), default_timeout=60)
+    at = AppTest.from_file(str(Path(__file__).parents[1] / "streamlit_app" / "app.py"), default_timeout=60)
     at.run()
     assert not at.exception
     assert any("Ready to scan" in m.value for m in at.markdown)

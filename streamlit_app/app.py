@@ -1,6 +1,10 @@
 """Scrimmy Forensic Console: a Streamlit front end for live scans.
 
-    streamlit run app.py
+    streamlit run streamlit_app/app.py
+
+For Streamlit Community Cloud, Render, Railway, Fly.io or any host that runs a long-lived
+process. Vercel cannot run Streamlit (it needs a persistent WebSocket); the Vercel
+deployment uses public/ + api/index.py instead.
 
 Every scan makes live HTTP calls to USASpending.gov, CMS NPPES, the U.S. Census
 Geocoder and OpenStreetMap Overpass (plus HHS-OIG LEIE / state licensing / imagery
@@ -15,11 +19,14 @@ import html
 import io
 import json
 import os
+import sys
 import zipfile
 from datetime import date, datetime, timezone
 from pathlib import Path
 
 import streamlit as st
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # repo root, so `scrimmy` imports when run from anywhere
 
 from scrimmy import __version__
 from scrimmy.clients import EvidenceLedger, ResilientHTTP, SourceAPIError

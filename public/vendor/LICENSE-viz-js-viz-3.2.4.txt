@@ -1,0 +1,3 @@
+@viz-js/viz 3.2.4 (https://github.com/mdaines/viz-js) is distributed under the MIT License
+(as declared in its package.json). viz-standalone.js bundles Graphviz (https://graphviz.org),
+which is distributed under the Eclipse Public License 1.0.

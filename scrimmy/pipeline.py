@@ -110,10 +110,10 @@ class ScanResult:
 class Pipeline:
     def __init__(self, settings: PipelineSettings, backend: LLMBackend | None = None,
                  transport: httpx.BaseTransport | None = None, sleep=None, limiter: HostRateLimiter | None = None,
-                 progress: ProgressFn | None = None):
+                 progress: ProgressFn | None = None, ledger_namespace: str = ""):
         self.settings = settings
         self.progress = progress or (lambda msg, frac: None)
-        self.ledger = EvidenceLedger()
+        self.ledger = EvidenceLedger(namespace=ledger_namespace)
         http_kwargs: dict = {"sleep": sleep} if sleep else {}
         if limiter:
             http_kwargs["limiter"] = limiter

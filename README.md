@@ -31,8 +31,9 @@ Scrimmy is an open-source, deterministic **lead-generation and evidence-compilat
 | `scrimmy/evidence.py` | Write-once evidence vault, `SHA256SUMS`, verification |
 | `scrimmy/synthesizer.py` | Track A/B routing, statutes, checklists, guarded LLM summary, Markdown/JSON rendering |
 | `scrimmy/pipeline.py`, `scrimmy/options.py`, `scrimmy/main.py` | Orchestrator, shared option builder, CLI |
-| `app.py` | Streamlit forensic console (live data only) |
-| `scrimmy/demo.py` | Offline synthetic fixtures for `--demo` and the tests. Never used by `app.py` |
+| `public/` + `api/index.py` + `scrimmy/service.py` | Hosted web console for Vercel: static front end plus a stateless FastAPI function |
+| `streamlit_app/app.py` | Streamlit console for hosts that run a long-lived process |
+| `scrimmy/demo.py` | Offline synthetic fixtures for `--demo` and the tests. Never used by either console |
 
 The briefs named some files differently; they map as follows: `ingestor.py` → `ingestion.py`, `enricher.py` → `enrichment.py`, `dossier.py` → `synthesizer.py` + `evidence.py`, `api_client.py` → `clients.py`, `forensic_engine.py` → `scorer.py` + `math_engine.py`.
 
@@ -40,23 +41,39 @@ The briefs named some files differently; they map as follows: `ingestor.py` → 
 
 ```bash
 python3.11 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt            # core + web console
+pip install -r requirements.txt            # core pipeline, CLI and API
 pip install -r requirements-llm.txt        # optional: anthropic / openai / litellm (summaries, vision)
 pip install -r requirements-dev.txt        # optional: pytest
 ```
 
 ## Web console
 
+There are two front ends over the same pipeline. Both make live calls only and contain no sample data. If a scan finds nothing above the threshold you get an empty state, and if the APIs are unreachable the console says so.
+
+### Hosted on Vercel (`public/` + `api/index.py`)
+
+Vercel runs serverless functions: each request must finish within the function's time limit, and functions cannot hold a WebSocket. So the hosted console splits a scan into short, stateless API steps (`search` → `enrich` one recipient at a time → `score` → optional `site-check` → `dossier` / `evidence`). The browser drives them and keeps the scan state, including the raw response bytes for the evidence archive.
+
+1. Import the repo in Vercel. `vercel.json` sets the framework to **Other**, serves `public/`, and routes `/api/*` to the Python function. No build command is needed. Python is pinned by `.python-version`.
+2. Optional environment variables (Project → Settings → Environment Variables):
+   - `SCRIMMY_CONTACT`: your email, sent in the User-Agent as a courtesy to public API operators.
+   - `SCRIMMY_ACCESS_TOKEN`: if set, every API call must send it. Set it unless you want anyone with the URL to run scans from your Vercel account.
+   - `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`: LLM-written summary prose.
+   - `MAPILLARY_TOKEN` or `GOOGLE_MAPS_API_KEY`, plus an LLM key: street-level vision checks.
+3. Open the deployment URL, pick verticals, state, award floor and fiscal year, then **Run live scan**. Each recipient is a separate function call, so a scan takes about as long as the CLI (a few seconds per recipient, two at a time).
+
+Run the same layout locally with `python scripts/serve_local.py` (http://localhost:8000).
+
+Hosted limits: licensing sources must be public Socrata datasets (pasted as JSON in the sidebar), since a serverless function has no local files. The LEIE file is downloaded into the function's `/tmp` and cached for up to 7 days per warm instance.
+
+### Streamlit (`streamlit_app/app.py`)
+
 ```bash
-streamlit run app.py            # opens http://localhost:8501
+pip install -r streamlit_app/requirements.txt
+streamlit run streamlit_app/app.py            # http://localhost:8501
 ```
 
-1. In the sidebar, pick verticals (child care, home health, hospice, clinics), a state, an award floor and a fiscal year.
-2. Optional: press **Download latest LEIE** to fetch the HHS-OIG exclusion file, which turns on LEIE screening. Upload a licensing-sources JSON (see `config/license_sources.example.json`) to enable capacity arithmetic and switch the profile to **Capacity**.
-3. Press **Run live scan**. The console calls USASpending.gov, NPPES, the Census Geocoder and OpenStreetMap live, with progress shown as it goes. A scan of 150 award rows typically takes a few minutes, because Scrimmy throttles itself to respect each public API's rate limits.
-4. **Live Scanner** shows summary metrics and lead cards. **Target Inspector** shows the score breakdown, capacity math, the map, raw API payloads and the verification checklist. **Network Map** shows shared addresses and people. **Dossier Export** downloads the Markdown briefing, the JSON provenance file, and the evidence archive (`.zip` with `SHA256SUMS`).
-
-There is no sample data in the console. If a scan finds nothing above the threshold, you get an empty state. If the APIs are unreachable, the console says so.
+Streamlit keeps a WebSocket open to a long-running server, so it **cannot run on Vercel**. Use Streamlit Community Cloud (entrypoint `streamlit_app/app.py`; it reads `streamlit_app/requirements.txt`), Render, Railway, Fly.io or a VM. Its views are the same as the hosted console: Live Scanner, Target Inspector, Network Map and Dossier Export. It can also download the LEIE and accept an uploaded licensing-sources JSON.
 
 ## CLI
 

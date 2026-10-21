@@ -1,0 +1,3 @@
+# Streamlit console (local, Streamlit Community Cloud, Render, Railway, Fly.io ...). Not used by Vercel.
+-r ../requirements.txt
+streamlit==1.66.0
